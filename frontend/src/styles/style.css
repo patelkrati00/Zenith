@@ -1,0 +1,24 @@
+/* vscode-theme.css */
+:root {
+  --bg-main: #0d1117;
+  --bg-sidebar: #000000;
+  --bg-header: #161b22;
+  --bg-panel: #1e1e1e;
+  --bg-hover: #2a2d2e;
+  --border: #21262d;
+  --accent: #238636;
+  --text: #c9d1d9;
+  --text-dim: #8b949e;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-main);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  user-select: none;
+}
+
+button {
+  cursor: pointer;
+}
