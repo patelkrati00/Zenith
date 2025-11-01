@@ -1,10 +1,11 @@
+import React, { useState } from "react";
 import TopBar from "./EditorPage/TopBar";
 import Sidebar from "./EditorPage/Sidebar";
-import React, { useState } from "react";
 import ActivityBar from "./EditorPage/ActivityBar";
 import EditorTabs from "./EditorPage/EditorTabs";
 import CodeEditor from "./EditorPage/CodeEditor";
 import Terminal from "./EditorPage/Terminal";
+import StatusBar from "./EditorPage/StatusBar";
 
 const EditorPage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -43,34 +44,48 @@ const EditorPage = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#1e1e1e]">
-      {/* Top Bar - Fixed at top */}
+      
+      {/* Top Bar */}
       <div className="flex-shrink-0">
         <TopBar />
       </div>
 
-      {/* Main Content Area - Flex row */}
+      {/* Body Layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Activity Bar - Fixed left side */}
+        
+        {/* Activity Bar */}
         <div className="flex-shrink-0">
           <ActivityBar onToggleSidebar={toggleSidebar} />
         </div>
 
-        {/* Sidebar - Toggleable */}
-        <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
+        {/* Sidebar */}
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onToggle={toggleSidebar}
+          fileTree={fileTree}
+          openFolders={openFolders}
+          toggleFolder={toggleFolder}
+          openFile={openFile}
+        />
 
-        {/* Editor Area - Takes remaining space */}
+        {/* Editor + Terminal Area */}
         <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Editor Tabs - Fixed at top of editor */}
+          
+          {/* Tabs */}
           <div className="flex-shrink-0">
             <EditorTabs />
           </div>
 
-          {/* Code Editor - Takes remaining space */}
+          {/* Code Editor */}
           <div className="flex-1 overflow-hidden">
             <CodeEditor />
           </div>
 
-          <Terminal/>
+          {/* Terminal */}
+          <Terminal />
+
+          {/* Status Bar */}
+          <StatusBar />
         </div>
       </div>
     </div>
