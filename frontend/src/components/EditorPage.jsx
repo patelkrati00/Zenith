@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import ActivityBar from "./EditorPage/ActivityBar";
 import EditorTabs from "./EditorPage/EditorTabs";
 import CodeEditor from "./EditorPage/CodeEditor";
-
+import Terminal from "./EditorPage/Terminal";
 
 const EditorPage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -69,6 +69,8 @@ const EditorPage = () => {
           <div className="flex-1 overflow-hidden">
             <CodeEditor />
           </div>
+
+          <Terminal/>
         </div>
       </div>
     </div>
