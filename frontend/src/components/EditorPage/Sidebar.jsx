@@ -1,7 +1,7 @@
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen, ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onToggle }) => {
   const [expandedFolders, setExpandedFolders] = useState(new Set(['root', 'src', 'components']));
 
   const fileTree = {
@@ -99,18 +99,28 @@ const Sidebar = () => {
     );
   };
 
+  // If sidebar is closed, return null (hidden)
+  if (!isOpen) return null;
+
   return (
     <div 
-      className="bg-[#252526] border-r border-[#3c3c3c] overflow-y-auto"
+      className="bg-[#252526] border-r border-[#3c3c3c] overflow-y-auto transition-all duration-200"
       style={{ 
         width: '250px', 
-        height: '100vh',
+        height: '100%',
         fontFamily: '"Cascadia Code", Consolas, "Courier New", monospace'
       }}
     >
-      {/* Header */}
-      <div className="h-[35px] flex items-center px-[20px] text-[11px] font-semibold text-[#cccccc] uppercase tracking-wide border-b border-[#3c3c3c]">
-        Explorer
+      {/* Header with Close Button */}
+      <div className="h-[35px] flex items-center justify-between px-[12px] text-[11px] font-semibold text-[#cccccc] uppercase tracking-wide border-b border-[#3c3c3c]">
+        <span>Explorer</span>
+        <button
+          onClick={onToggle}
+          className="w-[20px] h-[20px] flex items-center justify-center hover:bg-[#3e3e42] rounded transition-colors"
+          title="Close Sidebar"
+        >
+          <ChevronLeft size={16} strokeWidth={2} />
+        </button>
       </div>
 
       {/* File Tree */}

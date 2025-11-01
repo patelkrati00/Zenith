@@ -1,7 +1,7 @@
 import { Files, Search, GitBranch, Play, Package } from 'lucide-react';
 import { useState } from 'react';
 
-const ActivityBar = () => {
+const ActivityBar = ({ onToggleSidebar }) => {
   const [activeItem, setActiveItem] = useState('explorer');
 
   const items = [
@@ -12,10 +12,20 @@ const ActivityBar = () => {
     { id: 'extensions', icon: Package, label: 'Extensions' }
   ];
 
+  const handleItemClick = (itemId) => {
+    if (itemId === activeItem) {
+      // If clicking the same item, toggle sidebar
+      onToggleSidebar();
+    } else {
+      // If clicking different item, set as active (sidebar stays open)
+      setActiveItem(itemId);
+    }
+  };
+
   return (
     <div 
       className="flex flex-col items-center bg-[#333333] border-r border-[#3c3c3c]"
-      style={{ width: '52px', height: '100vh', fontFamily: '"Cascadia Code", Consolas, "Courier New", monospace' }}
+      style={{ width: '52px', height: '100%', fontFamily: '"Cascadia Code", Consolas, "Courier New", monospace' }}
     >
       {items.map((item) => {
         const Icon = item.icon;
@@ -24,7 +34,7 @@ const ActivityBar = () => {
         return (
           <button
             key={item.id}
-            onClick={() => setActiveItem(item.id)}
+            onClick={() => handleItemClick(item.id)}
             className="relative w-full h-[52px] flex items-center justify-center text-[#cccccc] hover:text-white transition-colors duration-75"
             title={item.label}
           >

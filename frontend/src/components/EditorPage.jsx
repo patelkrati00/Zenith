@@ -5,11 +5,15 @@ import ActivityBar from "./EditorPage/ActivityBar";
 import EditorTabs from "./EditorPage/EditorTabs";
 import CodeEditor from "./EditorPage/CodeEditor";
 
+
 const EditorPage = () => {
-  // State to track which folders are open
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [openFolders, setOpenFolders] = useState(new Set());
 
-  // Toggle folder open/close
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   const toggleFolder = (path) => {
     const newSet = new Set(openFolders);
     if (newSet.has(path)) newSet.delete(path);
@@ -17,12 +21,10 @@ const EditorPage = () => {
     setOpenFolders(newSet);
   };
 
-  // Handle file click
   const openFile = (name, path) => {
     console.log("Opening file:", name, "at path:", path);
   };
 
-  // Example file/folder tree
   const fileTree = {
     name: "root",
     type: "folder",
@@ -50,13 +52,11 @@ const EditorPage = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Activity Bar - Fixed left side */}
         <div className="flex-shrink-0">
-          <ActivityBar />
+          <ActivityBar onToggleSidebar={toggleSidebar} />
         </div>
 
-        {/* Sidebar - Fixed width, scrollable */}
-        <div className="flex-shrink-0">
-          <Sidebar />
-        </div>
+        {/* Sidebar - Toggleable */}
+        <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
 
         {/* Editor Area - Takes remaining space */}
         <div className="flex flex-col flex-1 overflow-hidden">
