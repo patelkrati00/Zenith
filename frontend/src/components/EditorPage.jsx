@@ -8,6 +8,10 @@ import Terminal from "./EditorPage/Terminal";
 import StatusBar from "./EditorPage/StatusBar";
 
 const EditorPage = () => {
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });
+  const [indentation, setIndentation] = useState("Spaces: 2");
+  const [language, setLanguage] = useState("JavaScript");
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [openFolders, setOpenFolders] = useState(new Set());
 
@@ -44,7 +48,7 @@ const EditorPage = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#1e1e1e]">
-      
+
       {/* Top Bar */}
       <div className="flex-shrink-0">
         <TopBar />
@@ -52,7 +56,7 @@ const EditorPage = () => {
 
       {/* Body Layout */}
       <div className="flex flex-1 overflow-hidden">
-        
+
         {/* Activity Bar */}
         <div className="flex-shrink-0">
           <ActivityBar onToggleSidebar={toggleSidebar} />
@@ -70,7 +74,7 @@ const EditorPage = () => {
 
         {/* Editor + Terminal Area */}
         <div className="flex flex-col flex-1 overflow-hidden">
-          
+
           {/* Tabs */}
           <div className="flex-shrink-0">
             <EditorTabs />
@@ -78,14 +82,22 @@ const EditorPage = () => {
 
           {/* Code Editor */}
           <div className="flex-1 overflow-hidden">
-            <CodeEditor />
+            <CodeEditor
+              onCursorChange={setCursorPosition}
+              onIndentChange={setIndentation}
+              onLanguageChange={setLanguage}
+            />
           </div>
 
           {/* Terminal */}
           <Terminal />
 
           {/* Status Bar */}
-          <StatusBar />
+          <StatusBar
+            cursorPosition={cursorPosition}
+            indentation={indentation}
+            language={language}
+          />
         </div>
       </div>
     </div>
