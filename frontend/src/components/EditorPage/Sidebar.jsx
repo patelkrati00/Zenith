@@ -1,58 +1,122 @@
-import React from 'react';
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen } from 'lucide-react';
+import { useState } from 'react';
 
-const Sidebar = ({ fileTree, openFolders, toggleFolder, openFile }) => {
-  const renderTree = (node, path = '') => {
-    const currentPath = path ? `${path}/${node.name}` : node.name;
-    const isOpen = openFolders.has(currentPath);
+const Sidebar = () => {
+  const [expandedFolders, setExpandedFolders] = useState(new Set(['root', 'src', 'components']));
+
+  const fileTree = {
+    id: 'root',
+    name: 'my-vscode-app',
+    type: 'folder',
+    children: [
+      {
+        id: 'src',
+        name: 'src',
+        type: 'folder',
+        children: [
+          {
+            id: 'components',
+            name: 'components',
+            type: 'folder',
+            children: [
+              { id: 'activitybar', name: 'ActivityBar.jsx', type: 'file' },
+              { id: 'sidebar', name: 'Sidebar.jsx', type: 'file' }
+            ]
+          },
+          { id: 'app', name: 'App.jsx', type: 'file' },
+          { id: 'main', name: 'main.jsx', type: 'file' }
+        ]
+      },
+      {
+        id: 'public',
+        name: 'public',
+        type: 'folder',
+        children: [
+          { id: 'index', name: 'index.html', type: 'file' }
+        ]
+      },
+      { id: 'package', name: 'package.json', type: 'file' },
+      { id: 'vite', name: 'vite.config.js', type: 'file' },
+      { id: 'readme', name: 'README.md', type: 'file' }
+    ]
+  };
+
+  const toggleFolder = (folderId) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId);
+      } else {
+        newSet.add(folderId);
+      }
+      return newSet;
+    });
+  };
+
+  const renderTree = (node, depth = 0) => {
+    const isExpanded = expandedFolders.has(node.id);
+    const paddingLeft = depth * 16 + 8;
 
     if (node.type === 'folder') {
       return (
-        <div key={currentPath}>
+        <div key={node.id}>
           <div
-            onClick={() => toggleFolder(currentPath)}
-            className="flex items-center px-2 py-1 hover:bg-[var(--bg-hover)] cursor-pointer"
+            onClick={() => toggleFolder(node.id)}
+            className="flex items-center h-[22px] px-2 text-[#cccccc] hover:bg-[#2a2d2e] cursor-pointer select-none"
+            style={{ paddingLeft: `${paddingLeft}px` }}
           >
-            {isOpen ? (
-              <ChevronDown size={16} className="text-gray-400 mr-1" />
+            {isExpanded ? (
+              <ChevronDown size={16} className="mr-[2px] flex-shrink-0" strokeWidth={2} />
             ) : (
-              <ChevronRight size={16} className="text-gray-400 mr-1" />
+              <ChevronRight size={16} className="mr-[2px] flex-shrink-0" strokeWidth={2} />
             )}
-            {isOpen ? (
-              <FolderOpen size={16} className="text-[#dcb67a] mr-2" />
+            {isExpanded ? (
+              <FolderOpen size={16} className="mr-[6px] flex-shrink-0 text-[#dcb67a]" strokeWidth={1.5} />
             ) : (
-              <Folder size={16} className="text-[#dcb67a] mr-2" />
+              <Folder size={16} className="mr-[6px] flex-shrink-0 text-[#dcb67a]" strokeWidth={1.5} />
             )}
-            <span className="text-sm text-[var(--text)]">{node.name}</span>
+            <span className="text-[13px] truncate">{node.name}</span>
           </div>
-          {isOpen && node.children && (
-            <div className="ml-4">{node.children.map(child => renderTree(child, currentPath))}</div>
+          {isExpanded && node.children && (
+            <div>
+              {node.children.map(child => renderTree(child, depth + 1))}
+            </div>
           )}
         </div>
       );
     }
 
+    // File
     return (
       <div
-        key={currentPath}
-        onClick={() => openFile(node.name, currentPath)}
-        className="flex items-center px-2 py-1 pl-6 hover:bg-[var(--bg-hover)] cursor-pointer"
+        key={node.id}
+        className="flex items-center h-[22px] px-2 text-[#cccccc] hover:bg-[#2a2d2e] cursor-pointer select-none"
+        style={{ paddingLeft: `${paddingLeft + 18}px` }}
       >
-        <File size={16} className="text-gray-400 mr-2" />
-        <span className="text-sm text-[var(--text)]">{node.name}</span>
+        <File size={16} className="mr-[6px] flex-shrink-0 text-[#519aba]" strokeWidth={1.5} />
+        <span className="text-[13px] truncate">{node.name}</span>
       </div>
     );
   };
 
   return (
-    <div className="w-64 bg-[var(--bg-sidebar)] border-r border-[var(--border)] flex flex-col overflow-hidden">
-      <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--border)]">
-        <span className="text-xs uppercase text-[var(--text-dim)] font-semibold">Explorer</span>
-        <button className="p-1 hover:bg-[var(--bg-hover)] rounded transition-colors">
-          <Plus size={16} className="text-gray-400" />
-        </button>
+    <div 
+      className="bg-[#252526] border-r border-[#3c3c3c] overflow-y-auto"
+      style={{ 
+        width: '250px', 
+        height: '100vh',
+        fontFamily: '"Cascadia Code", Consolas, "Courier New", monospace'
+      }}
+    >
+      {/* Header */}
+      <div className="h-[35px] flex items-center px-[20px] text-[11px] font-semibold text-[#cccccc] uppercase tracking-wide border-b border-[#3c3c3c]">
+        Explorer
       </div>
-      <div className="flex-1 overflow-y-auto py-2">{renderTree(fileTree)}</div>
+
+      {/* File Tree */}
+      <div className="py-[8px]">
+        {renderTree(fileTree)}
+      </div>
     </div>
   );
 };
