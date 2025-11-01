@@ -15,14 +15,21 @@ const EditorPage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [openFolders, setOpenFolders] = useState(new Set());
 
+  // ➕ Terminal open/close state
+  const [isTerminalOpen, setIsTerminalOpen] = useState(true);
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
+  // ✅ Toggle terminal
+  const toggleTerminal = () => {
+    setIsTerminalOpen(prev => !prev);
+  };
+
   const toggleFolder = (path) => {
     const newSet = new Set(openFolders);
-    if (newSet.has(path)) newSet.delete(path);
-    else newSet.add(path);
+    newSet.has(path) ? newSet.delete(path) : newSet.add(path);
     setOpenFolders(newSet);
   };
 
@@ -50,17 +57,12 @@ const EditorPage = () => {
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#1e1e1e]">
 
       {/* Top Bar */}
-      <div className="flex-shrink-0">
-        <TopBar />
-      </div>
+      <TopBar />
 
-      {/* Body Layout */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* Activity Bar */}
-        <div className="flex-shrink-0">
-          <ActivityBar onToggleSidebar={toggleSidebar} />
-        </div>
+        <ActivityBar onToggleSidebar={toggleSidebar} />
 
         {/* Sidebar */}
         <Sidebar
@@ -72,13 +74,10 @@ const EditorPage = () => {
           openFile={openFile}
         />
 
-        {/* Editor + Terminal Area */}
+        {/* Main Content */}
         <div className="flex flex-col flex-1 overflow-hidden">
 
-          {/* Tabs */}
-          <div className="flex-shrink-0">
-            <EditorTabs />
-          </div>
+          <EditorTabs />
 
           {/* Code Editor */}
           <div className="flex-1 overflow-hidden">
@@ -89,8 +88,8 @@ const EditorPage = () => {
             />
           </div>
 
-          {/* Terminal */}
-          <Terminal />
+          {/* ✅ Terminal now controlled & resizable */}
+          <Terminal isOpen={isTerminalOpen} onToggle={toggleTerminal} />
 
           {/* Status Bar */}
           <StatusBar

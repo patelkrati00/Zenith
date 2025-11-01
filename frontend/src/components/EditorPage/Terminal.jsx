@@ -1,7 +1,7 @@
-import { Plus, Trash2, SplitSquareHorizontal, ChevronDown, X } from 'lucide-react';
+import { Plus, Trash2, SplitSquareHorizontal, ChevronDown, X, ChevronUp, Maximize2, Minimize2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
-const Terminal = () => {
+const Terminal = ({ isOpen, onToggle }) => {
   const [terminals, setTerminals] = useState([
     { id: 1, title: 'powershell', lines: [] }
   ]);
@@ -10,9 +10,13 @@ const Terminal = () => {
   const [commandHistory, setCommandHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [cursorVisible, setCursorVisible] = useState(true);
+  const [height, setHeight] = useState(250);
+  const [isResizing, setIsResizing] = useState(false);
   
   const terminalEndRef = useRef(null);
   const inputRef = useRef(null);
+  const startYRef = useRef(0);
+  const startHeightRef = useRef(0);
 
   const activeTerminal = terminals.find(t => t.id === activeTerminalId);
 
@@ -31,8 +35,42 @@ const Terminal = () => {
 
   // Focus input on mount and terminal click
   useEffect(() => {
-    inputRef.current?.focus();
-  }, [activeTerminalId]);
+    if (isOpen) {
+      inputRef.current?.focus();
+    }
+  }, [activeTerminalId, isOpen]);
+
+  // Resize handlers
+  const handleMouseDown = (e) => {
+    setIsResizing(true);
+    startYRef.current = e.clientY;
+    startHeightRef.current = height;
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      
+      const deltaY = startYRef.current - e.clientY;
+      const newHeight = Math.min(Math.max(startHeightRef.current + deltaY, 100), 600);
+      setHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   const addLine = (content, type = 'output') => {
     setTerminals(prev => prev.map(t => 
@@ -53,16 +91,13 @@ const Terminal = () => {
   const runCommand = (cmd) => {
     const trimmedCmd = cmd.trim();
     
-    // Add command to display
     addLine(`PS F:\\CodeEditor> ${trimmedCmd}`, 'command');
 
     if (!trimmedCmd) return;
 
-    // Add to history
     setCommandHistory(prev => [...prev, trimmedCmd]);
     setHistoryIndex(-1);
 
-    // Execute command
     switch (trimmedCmd.toLowerCase()) {
       case 'clear':
       case 'cls':
@@ -161,14 +196,34 @@ const Terminal = () => {
     setActiveTerminalId(filtered[0].id);
   };
 
+  const maximizeTerminal = () => {
+    setHeight(600);
+  };
+
+  const minimizeTerminal = () => {
+    setHeight(250);
+  };
+
+  if (!isOpen) return null;
+
   return (
     <div 
       className="flex flex-col bg-[#1e1e1e] border-t border-[#3c3c3c]"
       style={{ 
-        height: '250px',
+        height: `${height}px`,
         fontFamily: '"Cascadia Mono", Consolas, monospace'
       }}
     >
+      {/* Resize Handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className={`
+          h-[4px] w-full cursor-ns-resize hover:bg-[#007acc] transition-colors
+          ${isResizing ? 'bg-[#007acc]' : 'bg-transparent'}
+        `}
+        title="Drag to resize terminal"
+      />
+
       {/* Terminal Header */}
       <div className="flex items-center justify-between h-[35px] bg-[#252526] border-b border-[#3c3c3c] px-2">
         {/* Left: Title */}
@@ -201,10 +256,29 @@ const Terminal = () => {
             >
               <SplitSquareHorizontal size={14} strokeWidth={1.5} />
             </button>
+
+            <div className="w-[1px] h-[16px] bg-[#3c3c3c] mx-1" />
+
+            <button
+              onClick={maximizeTerminal}
+              className="w-[22px] h-[22px] flex items-center justify-center text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
+              title="Maximize Terminal Panel"
+            >
+              <Maximize2 size={14} strokeWidth={1.5} />
+            </button>
+
+            <button
+              onClick={minimizeTerminal}
+              className="w-[22px] h-[22px] flex items-center justify-center text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
+              title="Restore Terminal Panel"
+            >
+              <Minimize2 size={14} strokeWidth={1.5} />
+            </button>
             
             <button
+              onClick={onToggle}
               className="w-[22px] h-[22px] flex items-center justify-center text-[#cccccc] hover:bg-[#3e3e42] rounded transition-colors"
-              title="More Actions"
+              title="Hide Terminal"
             >
               <ChevronDown size={16} strokeWidth={1.5} />
             </button>
