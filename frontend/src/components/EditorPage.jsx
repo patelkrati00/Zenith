@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import TopBar from "./EditorPage/TopBar";
 import Sidebar from "./EditorPage/Sidebar";
 import ActivityBar from "./EditorPage/ActivityBar";
@@ -6,6 +6,7 @@ import EditorTabs from "./EditorPage/EditorTabs";
 import CodeEditor from "./EditorPage/CodeEditor";
 import Terminal from "./EditorPage/Terminal";
 import StatusBar from "./EditorPage/StatusBar";
+import CommandPalette from "./EditorPage/CommandPalette";
 
 const EditorPage = () => {
   const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });
@@ -17,6 +18,25 @@ const EditorPage = () => {
 
   // ➕ Terminal open/close state
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
+
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+
+  // Open Command Palette with Ctrl+Shift+P
+useEffect(() => {
+  const handleKey = (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "p") {
+      e.preventDefault();
+      setIsPaletteOpen(true);
+    }
+    if (e.key === "Escape") {
+      setIsPaletteOpen(false);
+    }
+  };
+
+  window.addEventListener("keydown", handleKey);
+  return () => window.removeEventListener("keydown", handleKey);
+}, []);
+
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -97,6 +117,11 @@ const EditorPage = () => {
             indentation={indentation}
             language={language}
           />
+          <CommandPalette
+            isOpen={isPaletteOpen}
+            onClose={() => setIsPaletteOpen(false)}
+          />
+
         </div>
       </div>
     </div>
