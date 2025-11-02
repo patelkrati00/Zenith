@@ -1,6 +1,6 @@
-import { Minus, Square, X, Menu } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 
-const TopBar = () => {
+const TopBar = ({ onOpenPalette }) => {
   const menuItems = ['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'];
 
   return (
@@ -13,12 +13,10 @@ const TopBar = () => {
     >
       {/* Left: Menu Items */}
       <div className="flex items-center h-full">
-        {/* App Icon/Menu (optional) */}
         <div className="flex items-center justify-center w-[50px] h-full hover:bg-[#3e3e42] cursor-pointer">
           <Menu size={16} className="text-[#cccccc]" strokeWidth={1.5} />
         </div>
 
-        {/* Menu Bar */}
         <div className="flex items-center h-full">
           {menuItems.map((item) => (
             <div
@@ -31,37 +29,18 @@ const TopBar = () => {
         </div>
       </div>
 
-      {/* Center: Window Title */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 text-[13px] text-[#cccccc] select-none">
-        my-vscode-app - Visual Studio Code
+      {/* ✅ Center: Editor Title + Search Icon (Opens Command Palette) */}
+      <div 
+        onClick={onOpenPalette}
+        className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2 text-[13px] text-[#cccccc] cursor-pointer hover:bg-[#3e3e42] px-2 py-1 rounded select-none"
+        title="Show All Commands (Ctrl+Shift+P)"
+      >
+        <Search size={14} strokeWidth={1.5} />
+        <span>My Editor</span>
       </div>
 
-      {/* Right: Window Controls */}
-      <div className="flex items-center h-full">
-        {/* Minimize */}
-        <button 
-          className="w-[46px] h-full flex items-center justify-center text-[#cccccc] hover:bg-[#3e3e42] transition-colors"
-          title="Minimize"
-        >
-          <Minus size={16} strokeWidth={1.5} />
-        </button>
-
-        {/* Maximize/Restore */}
-        <button 
-          className="w-[46px] h-full flex items-center justify-center text-[#cccccc] hover:bg-[#3e3e42] transition-colors"
-          title="Maximize"
-        >
-          <Square size={13} strokeWidth={1.5} />
-        </button>
-
-        {/* Close */}
-        <button 
-          className="w-[46px] h-full flex items-center justify-center text-[#cccccc] hover:bg-[#e81123] hover:text-white transition-colors"
-          title="Close"
-        >
-          <X size={18} strokeWidth={1.5} />
-        </button>
-      </div>
+      {/* ✅ Right: Removed window controls */}
+      <div className="w-[120px]"></div> {/* empty space to balance layout */}
     </div>
   );
 };

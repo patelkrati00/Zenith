@@ -22,20 +22,20 @@ const EditorPage = () => {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   // Open Command Palette with Ctrl+Shift+P
-useEffect(() => {
-  const handleKey = (e) => {
-    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "p") {
-      e.preventDefault();
-      setIsPaletteOpen(true);
-    }
-    if (e.key === "Escape") {
-      setIsPaletteOpen(false);
-    }
-  };
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setIsPaletteOpen(true);
+      }
+      if (e.key === "Escape") {
+        setIsPaletteOpen(false);
+      }
+    };
 
-  window.addEventListener("keydown", handleKey);
-  return () => window.removeEventListener("keydown", handleKey);
-}, []);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
 
   const toggleSidebar = () => {
@@ -77,7 +77,7 @@ useEffect(() => {
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#1e1e1e]">
 
       {/* Top Bar */}
-      <TopBar />
+      <TopBar onOpenPalette={() => setIsPaletteOpen(true)} />
 
       <div className="flex flex-1 overflow-hidden">
 
