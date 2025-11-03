@@ -7,6 +7,7 @@ import CodeEditor from "./EditorPage/CodeEditor";
 import Terminal from "./EditorPage/Terminal";
 import StatusBar from "./EditorPage/StatusBar";
 import CommandPalette from "./EditorPage/CommandPalette";
+import GitPanel from "./EditorPage/GitPanel";
 
 const EditorPage = () => {
   const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });

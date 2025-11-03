@@ -1,6 +1,8 @@
 import { Search, ChevronRight, File, Folder, Settings, GitBranch, Terminal, Code } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
+
+
 const CommandPalette = ({ isOpen, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -91,7 +93,7 @@ const CommandPalette = ({ isOpen, onClose }) => {
       category: 'Terminal',
       icon: Terminal,
       shortcut: 'Ctrl+Shift+`'
-    },
+    }, 
     { 
       id: 13, 
       name: 'Terminal: Kill Active Terminal', 
