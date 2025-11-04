@@ -1,46 +1,90 @@
-import { Menu, Search } from 'lucide-react';
+import React from "react";
+import { Menu, Search, Settings, User } from "lucide-react";
 
 const TopBar = ({ onOpenPalette }) => {
-  const menuItems = ['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'];
-
   return (
-    <div 
-      className="flex items-center justify-between bg-[#323233] border-b border-[#3c3c3c]"
-      style={{ 
-        height: '35px',
-        fontFamily: '"Cascadia Code", Consolas, "Courier New", monospace'
-      }}
-    >
-      {/* Left: Menu Items */}
-      <div className="flex items-center h-full">
-        <div className="flex items-center justify-center w-[50px] h-full hover:bg-[#3e3e42] cursor-pointer">
-          <Menu size={16} className="text-[#cccccc]" strokeWidth={1.5} />
-        </div>
-
-        <div className="flex items-center h-full">
-          {menuItems.map((item) => (
-            <div
-              key={item}
-              className="px-[10px] h-full flex items-center text-[13px] text-[#cccccc] hover:bg-[#3e3e42] cursor-pointer select-none"
-            >
-              {item}
-            </div>
-          ))}
+    <div className="h-9 bg-[#323233] border-b border-[#2d2d2d] flex items-center justify-between px-2 text-[#cccccc] text-sm">
+      {/* Left Section - Logo & Menu */}
+      <div className="flex items-center gap-2 sm:gap-4">
+        <button
+          className="sm:hidden hover:bg-[#2a2d2e] p-1 rounded transition-colors"
+          aria-label="Menu"
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+        
+        <div className="hidden sm:flex items-center gap-3">
+          <img 
+            src="/src/assets/zenith.png" 
+            alt="Zenith Logo" 
+            className="h-7 w-auto" 
+          />
+          <nav className="flex items-center gap-1">
+            <button className="px-2 py-1 hover:bg-[#2a2d2e] rounded transition-colors">
+              File
+            </button>
+            <button className="px-2 py-1 hover:bg-[#2a2d2e] rounded transition-colors">
+              Edit
+            </button>
+            <button className="px-2 py-1 hover:bg-[#2a2d2e] rounded transition-colors hidden md:block">
+              Selection
+            </button>
+            <button className="px-2 py-1 hover:bg-[#2a2d2e] rounded transition-colors hidden lg:block">
+              View
+            </button>
+            <button className="px-2 py-1 hover:bg-[#2a2d2e] rounded transition-colors hidden lg:block">
+              Go
+            </button>
+            <button className="px-2 py-1 hover:bg-[#2a2d2e] rounded transition-colors hidden xl:block">
+              Run
+            </button>
+            <button className="px-2 py-1 hover:bg-[#2a2d2e] rounded transition-colors hidden xl:block">
+              Terminal
+            </button>
+            <button className="px-2 py-1 hover:bg-[#2a2d2e] rounded transition-colors hidden xl:block">
+              Help
+            </button>
+          </nav>
         </div>
       </div>
 
-      {/* ✅ Center: Editor Title + Search Icon (Opens Command Palette) */}
-      <div 
-        onClick={onOpenPalette}
-        className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2 text-[13px] text-[#cccccc] cursor-pointer hover:bg-[#3e3e42] px-2 py-1 rounded select-none"
-        title="Show All Commands (Ctrl+Shift+P)"
-      >
-        <Search size={14} strokeWidth={1.5} />
-        <span>My Editor</span>
+      {/* Center Section - Search/Command Palette */}
+      <div className="flex-1 max-w-md mx-2 sm:mx-4 hidden sm:block">
+        <button
+          onClick={onOpenPalette}
+          className="w-full bg-[#3c3c3c] hover:bg-[#454545] text-left px-3 py-1 rounded flex items-center gap-2 transition-colors"
+        >
+          <Search className="w-3.5 h-3.5 text-[#858585]" />
+          <span className="text-[#858585] text-xs truncate">
+            Search files (Ctrl+Shift+P)
+          </span>
+        </button>
       </div>
 
-      {/* ✅ Right: Removed window controls */}
-      <div className="w-[120px]"></div> {/* empty space to balance layout */}
+      {/* Right Section - User & Settings */}
+      <div className="flex items-center gap-1 sm:gap-2">
+        <button
+          onClick={onOpenPalette}
+          className="sm:hidden hover:bg-[#2a2d2e] p-1 rounded transition-colors"
+          aria-label="Search"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+        
+        <button
+          className="hover:bg-[#2a2d2e] p-1 rounded transition-colors hidden sm:block"
+          aria-label="Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+        
+        <button
+          className="hover:bg-[#2a2d2e] p-1 rounded transition-colors"
+          aria-label="User Account"
+        >
+          <User className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 };

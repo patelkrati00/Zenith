@@ -13,16 +13,12 @@ const EditorPage = () => {
   const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });
   const [indentation, setIndentation] = useState("Spaces: 2");
   const [language, setLanguage] = useState("JavaScript");
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [openFolders, setOpenFolders] = useState(new Set());
-
-  // ➕ Terminal open/close state
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
-
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
-  // Open Command Palette with Ctrl+Shift+P
+  // Command Palette keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "p") {
@@ -38,14 +34,12 @@ const EditorPage = () => {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  // ✅ Toggle terminal
   const toggleTerminal = () => {
-    setIsTerminalOpen(prev => !prev);
+    setIsTerminalOpen((prev) => !prev);
   };
 
   const toggleFolder = (path) => {
@@ -76,16 +70,14 @@ const EditorPage = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#1e1e1e]">
-
       {/* Top Bar */}
       <TopBar onOpenPalette={() => setIsPaletteOpen(true)} />
 
       <div className="flex flex-1 overflow-hidden">
-
         {/* Activity Bar */}
         <ActivityBar onToggleSidebar={toggleSidebar} />
 
-        {/* Sidebar */}
+        {/* Sidebar - Responsive with overlay on mobile */}
         <Sidebar
           isOpen={isSidebarOpen}
           onToggle={toggleSidebar}
@@ -95,13 +87,13 @@ const EditorPage = () => {
           openFile={openFile}
         />
 
-        {/* Main Content */}
-        <div className="flex flex-col flex-1 overflow-hidden">
-
+        {/* Main Content Area */}
+        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+          {/* Editor Tabs */}
           <EditorTabs />
 
           {/* Code Editor */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden min-h-0">
             <CodeEditor
               onCursorChange={setCursorPosition}
               onIndentChange={setIndentation}
@@ -109,22 +101,28 @@ const EditorPage = () => {
             />
           </div>
 
-          {/* ✅ Terminal now controlled & resizable */}
+          {/* Terminal Panel */}
           <Terminal isOpen={isTerminalOpen} onToggle={toggleTerminal} />
+        </div>
 
-          {/* Status Bar */}
-          <StatusBar
-            cursorPosition={cursorPosition}
-            indentation={indentation}
-            language={language}
-          />
-          <CommandPalette
-            isOpen={isPaletteOpen}
-            onClose={() => setIsPaletteOpen(false)}
-          />
-
+        {/* Git Panel - Hidden on small screens */}
+        <div className="hidden lg:block">
+          <GitPanel />
         </div>
       </div>
+
+      {/* Status Bar */}
+      <StatusBar
+        cursorPosition={cursorPosition}
+        indentation={indentation}
+        language={language}
+      />
+
+      {/* Command Palette Overlay */}
+      <CommandPalette
+        isOpen={isPaletteOpen}
+        onClose={() => setIsPaletteOpen(false)}
+      />
     </div>
   );
 };
