@@ -46,12 +46,21 @@ Execute code in a sandboxed container (returns after completion).
 ### `WS /ws/run` (WebSocket - Real-time streaming)
 Execute code with real-time output streaming.
 
-**Send (Client → Server):**
+**Send (Client → Server) - Option 1: Inline code**
 ```json
 {
   "language": "node",
   "code": "console.log('Hello');",
   "filename": "index.js"
+}
+```
+
+**Send (Client → Server) - Option 2: Existing workspace**
+```json
+{
+  "language": "node",
+  "workspaceId": "abc123",
+  "command": "node index.js"
 }
 ```
 
@@ -69,6 +78,60 @@ Execute code with real-time output streaming.
 - `stderr` — Standard error stream
 - `exit` — Process finished (includes exit code)
 - `error` — Execution error
+
+### `POST /projects/upload`
+Upload multiple files or a zip archive to create a workspace.
+
+**Request (multipart/form-data):**
+```bash
+curl -X POST http://localhost:3001/projects/upload \
+  -F "files=@index.js" \
+  -F "files=@package.json"
+```
+
+**Response:**
+```json
+{
+  "workspaceId": "xyz789",
+  "message": "Files uploaded successfully",
+  "fileCount": 2,
+  "files": [
+    {"path": "index.js", "name": "index.js", "size": 42},
+    {"path": "package.json", "name": "package.json", "size": 128}
+  ]
+}
+```
+
+### `POST /projects/create`
+Create an empty workspace.
+
+**Response:**
+```json
+{
+  "workspaceId": "xyz789",
+  "workspacePath": "/tmp/ide-runner/xyz789",
+  "message": "Workspace created successfully"
+}
+```
+
+### `GET /projects/:workspaceId/files`
+List all files in a workspace.
+
+### `GET /projects/:workspaceId/file/*`
+Read a specific file from workspace.
+
+### `PUT /projects/:workspaceId/file/*`
+Write/update a file in workspace.
+
+**Request:**
+```json
+{
+  "content": "console.log('Updated!');"
+}
+```
+
+### `DELETE /projects/:workspaceId`
+Delete a workspace and all its files.
 
 ### `GET /health`
 Health check endpoint.

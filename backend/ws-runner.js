@@ -110,11 +110,11 @@ export function initWebSocketServer(httpServer, config) {
          */
         ws.on('message', async (message) => {
             try {
-                const { language, code, filename, command } = JSON.parse(message.toString());
+                const { language, code, filename, command, workspaceId: existingWorkspaceId } = JSON.parse(message.toString());
 
                 // Validation
-                if (!language || !code) {
-                    send('error', 'Missing required fields: language, code');
+                if (!language) {
+                    send('error', 'Missing required field: language');
                     return;
                 }
 
@@ -122,10 +122,6 @@ export function initWebSocketServer(httpServer, config) {
                     send('error', `Unsupported language: ${language}`);
                     return;
                 }
-
-                // Generate job ID
-                jobId = nanoid(10);
-                workspacePath = path.join(config.workspaceBase, jobId);
 
                 // Default filenames
                 const defaultFilenames = {
@@ -136,12 +132,38 @@ export function initWebSocketServer(httpServer, config) {
 
                 const targetFilename = filename || defaultFilenames[language];
 
-                // Create workspace
-                await fs.mkdir(workspacePath, { recursive: true });
-                await fs.writeFile(path.join(workspacePath, targetFilename), code, 'utf8');
+                // Use existing workspace or create new one
+                if (existingWorkspaceId) {
+                    // Use existing workspace
+                    jobId = existingWorkspaceId;
+                    workspacePath = path.join(config.workspaceBase, existingWorkspaceId);
 
-                console.log(`📦 Created workspace for job ${jobId}`);
-                send('info', `Job ${jobId} started`, jobId);
+                    // Verify workspace exists
+                    try {
+                        await fs.access(workspacePath);
+                        console.log(`🔄 Using existing workspace ${existingWorkspaceId}`);
+                        send('info', `Using workspace ${existingWorkspaceId}`, existingWorkspaceId);
+                    } catch {
+                        send('error', `Workspace ${existingWorkspaceId} not found`);
+                        return;
+                    }
+                } else {
+                    // Create new workspace with provided code
+                    if (!code) {
+                        send('error', 'Missing required field: code (when workspaceId not provided)');
+                        return;
+                    }
+
+                    jobId = nanoid(10);
+                    workspacePath = path.join(config.workspaceBase, jobId);
+
+                    // Create workspace
+                    await fs.mkdir(workspacePath, { recursive: true });
+                    await fs.writeFile(path.join(workspacePath, targetFilename), code, 'utf8');
+
+                    console.log(`📦 Created workspace for job ${jobId}`);
+                    send('info', `Job ${jobId} started`, jobId);
+                }
 
                 // Build Docker command
                 const image = LANGUAGE_IMAGES[language];

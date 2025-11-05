@@ -9,6 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import http from 'http';
 import { initWebSocketServer, killAllContainers } from './ws-runner.js';
+import { createProjectRouter } from './projects.js';
 
 dotenv.config();
 
@@ -61,6 +62,12 @@ function toDockerPosixPath(hostPath) {
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Mount project/workspace routes
+const projectConfig = {
+    workspaceBase: WORKSPACE_BASE
+};
+app.use('/projects', createProjectRouter(projectConfig));
 
 // Language to Docker image mapping
 const LANGUAGE_IMAGES = {
