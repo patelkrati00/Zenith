@@ -17,8 +17,8 @@ npm start
 
 ## API Endpoints
 
-### `POST /run`
-Execute code in a sandboxed container.
+### `POST /run` (HTTP - Non-streaming)
+Execute code in a sandboxed container (returns after completion).
 
 **Request:**
 ```json
@@ -43,6 +43,33 @@ Execute code in a sandboxed container.
 }
 ```
 
+### `WS /ws/run` (WebSocket - Real-time streaming)
+Execute code with real-time output streaming.
+
+**Send (Client → Server):**
+```json
+{
+  "language": "node",
+  "code": "console.log('Hello');",
+  "filename": "index.js"
+}
+```
+
+**Receive (Server → Client):**
+```json
+{"type": "info", "data": "Job abc123 started", "code": "abc123"}
+{"type": "stdout", "data": "Hello\n"}
+{"type": "stderr", "data": ""}
+{"type": "exit", "data": "Process exited with code 0", "code": 0}
+```
+
+**Message Types:**
+- `info` — Job started, general info
+- `stdout` — Standard output stream
+- `stderr` — Standard error stream
+- `exit` — Process finished (includes exit code)
+- `error` — Execution error
+
 ### `GET /health`
 Health check endpoint.
 
@@ -61,3 +88,28 @@ Health check endpoint.
 - Read-only filesystem
 - No privilege escalation
 - 30s execution timeout
+- Automatic container cleanup on disconnect
+- Graceful shutdown with container termination
+
+## Testing WebSocket
+
+### Using the test client:
+```bash
+# Test all languages
+node test-ws-client.js
+
+# Test specific language
+node test-ws-client.js node
+node test-ws-client.js python
+node test-ws-client.js cpp
+```
+
+### Using wscat:
+```bash
+# Install wscat globally (if not already installed)
+npm install -g wscat
+
+# Connect and send a test
+wscat -c ws://localhost:3001/ws/run
+> {"language":"node","code":"console.log('Hello WebSocket!')"}
+```

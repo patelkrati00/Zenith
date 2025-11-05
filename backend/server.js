@@ -7,6 +7,8 @@ import os from 'os';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
+import http from 'http';
+import { initWebSocketServer, killAllContainers } from './ws-runner.js';
 
 dotenv.config();
 
@@ -64,14 +66,14 @@ app.use(express.json({ limit: '10mb' }));
 const LANGUAGE_IMAGES = {
     node: 'node:18-alpine',
     python: 'python:3.11-alpine',
-    cpp: 'gcc:12-alpine'
+    cpp: 'gcc:latest'
 };
 
 // Language command templates
 const LANGUAGE_COMMANDS = {
     node: (file) => `node ${file}`,
     python: (file) => `python3 ${file}`,
-    cpp: (file) => `gcc ${file} -o /tmp/a.out && /tmp/a.out`
+    cpp: (file) => `g++ ${file} -o a.out && chmod +x a.out && ./a.out`
 };
 
 /**
@@ -147,7 +149,7 @@ async function runInContainer(language, workspacePath, filename) {
         '--security-opt=no-new-privileges',
         '--read-only',
         '--tmpfs', '/tmp',
-        '-v', `${dockerHostPath}:/workspace:ro`,
+        '-v', `${workspacePath}:/workspace:rw`,
         '-w', '/workspace',
         '--user', userOption,
         image,
@@ -286,12 +288,47 @@ app.get('/', (req, res) => {
 async function startServer() {
     await ensureWorkspaceBase();
 
-    app.listen(PORT, () => {
+    // Create HTTP server
+    const httpServer = http.createServer(app);
+
+    // Initialize WebSocket server
+    const wsConfig = {
+        workspaceBase: WORKSPACE_BASE,
+        dockerMemory: DOCKER_MEMORY,
+        dockerCpu: DOCKER_CPU,
+        dockerPids: DOCKER_PIDS,
+        dockerTimeout: DOCKER_TIMEOUT
+    };
+
+    initWebSocketServer(httpServer, wsConfig);
+
+    // Start listening
+    httpServer.listen(PORT, () => {
         console.log(`🚀 Zenith Runner API listening on port ${PORT}`);
         console.log(`📁 Workspace base: ${WORKSPACE_BASE}`);
         console.log(`🐳 Docker limits: ${DOCKER_MEMORY} RAM, ${DOCKER_CPU} CPU`);
         console.log(`⏱️  Timeout: ${DOCKER_TIMEOUT}s`);
         console.log(`🔒 Security: network=none, read-only, no-new-privileges`);
+        console.log(`📡 WebSocket endpoint: ws://localhost:${PORT}/ws/run`);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+        console.log('\n⚠️ SIGTERM received, shutting down gracefully...');
+        await killAllContainers();
+        httpServer.close(() => {
+            console.log('✅ Server closed');
+            process.exit(0);
+        });
+    });
+
+    process.on('SIGINT', async () => {
+        console.log('\n⚠️ SIGINT received, shutting down gracefully...');
+        await killAllContainers();
+        httpServer.close(() => {
+            console.log('✅ Server closed');
+            process.exit(0);
+        });
     });
 }
 
