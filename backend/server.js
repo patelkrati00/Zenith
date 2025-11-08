@@ -8,10 +8,17 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import http from 'http';
-import { initWebSocketServer, killAllContainers } from './ws-runner.js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { initWebSocketServer, killAllContainers, makeExecutorScriptsExecutable } from './ws-runner.js';
 import { createProjectRouter } from './projects.js';
 
 dotenv.config();
+
+// Get executor scripts directory path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const EXECUTOR_DIR = path.resolve(__dirname, '../executor');
 
 const execAsync = promisify(exec);
 const app = express();
@@ -76,11 +83,12 @@ const LANGUAGE_IMAGES = {
     cpp: 'gcc:latest'
 };
 
-// Language command templates
+// Language command templates using executor scripts
 const LANGUAGE_COMMANDS = {
-    node: (file) => `node ${file}`,
-    python: (file) => `python3 ${file}`,
-    cpp: (file) => `g++ ${file} -o a.out && chmod +x a.out && ./a.out`
+    node: (file) => `/executor/run_node.sh ${file}`,
+    python: (file) => `/executor/run_python.sh ${file}`,
+    cpp: (file) => `/executor/run_cpp.sh ${file}`,
+    java: (file) => `/executor/run_java.sh ${file}`
 };
 
 /**
@@ -129,8 +137,9 @@ async function runInContainer(language, workspacePath, filename) {
         throw new Error(`Unsupported language: ${language}`);
     }
 
-    // Convert host workspace path to Docker-friendly path
+    // Convert host paths to Docker-friendly paths
     const dockerHostPath = toDockerPosixPath(workspacePath);
+    const dockerExecutorPath = toDockerPosixPath(EXECUTOR_DIR);
 
     // Determine user option:
     // - On Windows, just use 1000:1000 (no process.getuid)
@@ -146,6 +155,7 @@ async function runInContainer(language, workspacePath, filename) {
     }
 
     // Build docker args as an array (no shell concatenation)
+    // Note: executor scripts are already made executable on the host before mounting
     const dockerArgs = [
         'run',
         '--rm',
@@ -154,9 +164,9 @@ async function runInContainer(language, workspacePath, filename) {
         `--cpus=${DOCKER_CPU}`,
         `--pids-limit=${DOCKER_PIDS}`,
         '--security-opt=no-new-privileges',
-        '--read-only',
         '--tmpfs', '/tmp',
         '-v', `${workspacePath}:/workspace:rw`,
+        '-v', `${dockerExecutorPath}:/executor:ro`,
         '-w', '/workspace',
         '--user', userOption,
         image,
@@ -294,6 +304,7 @@ app.get('/', (req, res) => {
 // Initialize and start server
 async function startServer() {
     await ensureWorkspaceBase();
+    await makeExecutorScriptsExecutable();
 
     // Create HTTP server
     const httpServer = http.createServer(app);

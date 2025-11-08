@@ -3,3 +3,6 @@ node_modules/
 *.log
 /tmp
 .DS_Store
+temp_project/
+executor/
+test-python-deps.js

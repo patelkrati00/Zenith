@@ -139,8 +139,17 @@ Health check endpoint.
 ## Supported Languages
 
 - `node` — Node.js (v18)
+  - Auto-installs dependencies from `package.json` using `npm ci` or `npm install`
+  - Detects entry point from `package.json` main field or uses `index.js`
 - `python` — Python 3.11
-- `cpp` — C/C++ (GCC 12)
+  - Auto-installs dependencies from `requirements.txt` using `pip` in virtualenv
+  - Entry point: `main.py` (or `app.py`, `__main__.py`, `run.py`)
+- `cpp` — C/C++ (GCC latest)
+  - Compiles with `gcc` (C) or `g++` (C++) based on file extension
+  - Supports `-std=c++17` by default
+- `java` — Java (OpenJDK, coming soon)
+  - Auto-compiles all `.java` files with `javac`
+  - Executes specified main class
 
 ## Security Features
 
@@ -153,6 +162,32 @@ Health check endpoint.
 - 30s execution timeout
 - Automatic container cleanup on disconnect
 - Graceful shutdown with container termination
+
+## Executor Scripts
+
+Executor scripts handle language-specific compilation, dependency installation, and execution inside Docker containers. They are mounted at `/executor` inside containers.
+
+### Available Scripts
+
+- `run_node.sh` — Node.js executor
+  - Detects `package.json` and runs `npm ci` (with lockfile) or `npm install`
+  - Auto-detects entry point from package.json or uses default
+  - Timeout protection on npm operations
+
+- `run_python.sh` — Python executor
+  - Creates virtualenv in `/tmp` (writable tmpfs)
+  - Installs packages from `requirements.txt` using pip
+  - Activates venv before running code
+
+- `run_cpp.sh` — C/C++ executor
+  - Auto-detects C vs C++ based on file extension
+  - Compiles with appropriate compiler (gcc/g++)
+  - Runs compiled binary with timeout
+
+- `run_java.sh` — Java executor
+  - Compiles all `.java` files in workspace
+  - Extracts main class name from source file
+  - Executes with proper classpath
 
 ## Testing WebSocket
 
@@ -176,3 +211,29 @@ npm install -g wscat
 wscat -c ws://localhost:3001/ws/run
 > {"language":"node","code":"console.log('Hello WebSocket!')"}
 ```
+
+## Testing Dependency Installation
+
+### Test Node.js with npm packages:
+```bash
+node test-node-deps.js
+```
+
+This test:
+1. Uploads a project with `package.json` (includes nanoid dependency)
+2. Runs npm install inside the container
+3. Executes code that uses the installed package
+4. Verifies successful execution
+
+### Test Python with pip packages:
+```bash
+node test-python-deps.js
+```
+
+This test:
+1. Uploads a project with `requirements.txt` (includes requests)
+2. Creates virtualenv and installs packages
+3. Executes code that imports the package
+4. Verifies successful execution
+
+**Note**: Python tests may take 60-90 seconds due to pip installation time.

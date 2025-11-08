@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid';
 import fs from 'fs/promises';
 import path from 'path';
 import { constants } from 'fs';
+ import { execSync } from 'child_process';
 
 /**
  * Create project/workspace management routes
@@ -56,49 +57,42 @@ export function createProjectRouter(config) {
      * POST /projects/upload
      * Upload multiple files or a zip archive
      */
-    router.post('/upload', upload.any(), async (req, res) => {
-        try {
-            const { workspaceId, workspacePath } = req;
-            const files = req.files || [];
+  
 
-            if (files.length === 0) {
-                return res.status(400).json({ error: 'No files uploaded' });
-            }
+router.post('/upload', upload.any(), async (req, res) => {
+  try {
+    const { workspaceId, workspacePath } = req;
+    const files = req.files || [];
 
-            // Check if any uploaded file is a zip
-            const zipFile = files.find(f => f.originalname.endsWith('.zip'));
+    if (files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
 
-            if (zipFile) {
-                // Extract zip file
-                try {
-                    const zip = new AdmZip(zipFile.path);
-                    zip.extractAllTo(workspacePath, true);
-                    
-                    // Delete the zip file after extraction
-                    await fs.unlink(zipFile.path);
+    const file = files[0];
+    const filePath = file.path;
 
-                    console.log(`📦 Extracted zip to workspace ${workspaceId}`);
-                } catch (error) {
-                    console.error('Zip extraction error:', error);
-                    return res.status(400).json({ error: 'Failed to extract zip file' });
-                }
-            }
+    if (file.originalname.endsWith('.zip')) {
+      const zip = new AdmZip(filePath);
+      zip.extractAllTo(workspacePath, true);
+      await fs.unlink(filePath);
+      console.log(`📦 Extracted ZIP to workspace ${workspaceId}`);
+    } 
+    else if (file.originalname.endsWith('.tar.gz') || file.originalname.endsWith('.tgz')) {
+      execSync(`tar -xzf "${filePath}" -C "${workspacePath}"`);
+      await fs.unlink(filePath);
+      console.log(`📦 Extracted TAR.GZ to workspace ${workspaceId}`);
+    } 
+    else {
+      console.warn(`⚠️ Unknown file type: ${file.originalname}`);
+    }
 
-            // Get list of files in workspace
-            const fileList = await getFileTree(workspacePath, workspacePath);
+    res.json({ workspaceId });
+  } catch (error) {
+    console.error('❌ Upload handler error:', error);
+    res.status(500).json({ error: 'Upload failed', details: error.message });
+  }
+});
 
-            res.json({
-                workspaceId,
-                message: 'Files uploaded successfully',
-                fileCount: fileList.length,
-                files: fileList
-            });
-
-        } catch (error) {
-            console.error('Upload error:', error);
-            res.status(500).json({ error: error.message });
-        }
-    });
 
     /**
      * POST /projects/create
