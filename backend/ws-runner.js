@@ -221,12 +221,12 @@ export function initWebSocketServer(httpServer, config) {
                 const execCommand = command || LANGUAGE_COMMANDS[language](targetFilename);
                 const dockerHostPath = toDockerPosixPath(workspacePath);
 
-                let userOption = '1000:1000';
+                let userOption = '0:0';
                 if (os.platform() !== 'win32') {
                     try {
                         userOption = `${process.getuid()}:${process.getgid()}`;
                     } catch {
-                        userOption = '1000:1000';
+                        userOption = '0:0';
                     }
                 }
 

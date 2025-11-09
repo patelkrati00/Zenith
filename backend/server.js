@@ -144,13 +144,13 @@ async function runInContainer(language, workspacePath, filename) {
     // Determine user option:
     // - On Windows, just use 1000:1000 (no process.getuid)
     // - On POSIX, use actual uid:gid from node if available
-    let userOption = '1000:1000';
+    let userOption = '0:0';
     if (os.platform() !== 'win32') {
         try {
             // process.getuid/getgid exist only on POSIX
             userOption = `${process.getuid()}:${process.getgid()}`;
         } catch (err) {
-            userOption = '1000:1000';
+            userOption = '0:0';
         }
     }
 

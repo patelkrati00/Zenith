@@ -68,22 +68,28 @@ router.post('/upload', upload.any(), async (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const file = files[0];
-    const filePath = file.path;
+    await fs.mkdir(workspacePath, { recursive: true });
 
-    if (file.originalname.endsWith('.zip')) {
-      const zip = new AdmZip(filePath);
-      zip.extractAllTo(workspacePath, true);
-      await fs.unlink(filePath);
-      console.log(`📦 Extracted ZIP to workspace ${workspaceId}`);
-    } 
-    else if (file.originalname.endsWith('.tar.gz') || file.originalname.endsWith('.tgz')) {
-      execSync(`tar -xzf "${filePath}" -C "${workspacePath}"`);
-      await fs.unlink(filePath);
-      console.log(`📦 Extracted TAR.GZ to workspace ${workspaceId}`);
-    } 
-    else {
-      console.warn(`⚠️ Unknown file type: ${file.originalname}`);
+    for (const file of files) {
+      const filePath = file.path;
+      const destPath = path.join(workspacePath, file.originalname);
+
+      if (file.originalname.endsWith('.zip')) {
+        const zip = new AdmZip(filePath);
+        zip.extractAllTo(workspacePath, true);
+        await fs.unlink(filePath);
+        console.log(`📦 Extracted ZIP to workspace ${workspaceId}`);
+      } 
+      else if (file.originalname.endsWith('.tar.gz') || file.originalname.endsWith('.tgz')) {
+        execSync(`tar -xzf "${filePath}" -C "${workspacePath}"`);
+        await fs.unlink(filePath);
+        console.log(`📦 Extracted TAR.GZ to workspace ${workspaceId}`);
+      } 
+      else {
+        // ✅ Handle normal files like .py, .whl, etc.
+        await fs.rename(filePath, destPath);
+        console.log(`📄 Saved file: ${file.originalname}`);
+      }
     }
 
     res.json({ workspaceId });
@@ -92,6 +98,7 @@ router.post('/upload', upload.any(), async (req, res) => {
     res.status(500).json({ error: 'Upload failed', details: error.message });
   }
 });
+
 
 
     /**
