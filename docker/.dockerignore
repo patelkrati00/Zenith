@@ -1,0 +1,43 @@
+# Node modules
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE/editor folders
+.vscode
+.idea
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Tests and documentation
+test
+tests
+*.test.js
+*.spec.js
+README.md
+docs
+
+# Temporary / build / cache folders
+tmp
+temp
+*.tmp
+dist
+build
+executor
