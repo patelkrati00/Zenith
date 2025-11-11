@@ -141,15 +141,23 @@ Health check endpoint.
 - `node` — Node.js (v18)
   - Auto-installs dependencies from `package.json` using `npm ci` or `npm install`
   - Detects entry point from `package.json` main field or uses `index.js`
+  - Default image: `node:18-alpine`
+  - Custom image: Set `DOCKER_IMAGE_NODE` in `.env`
 - `python` — Python 3.11
   - Auto-installs dependencies from `requirements.txt` using `pip` in virtualenv
   - Entry point: `main.py` (or `app.py`, `__main__.py`, `run.py`)
+  - Default image: `python:3.11-alpine`
+  - Custom image: Set `DOCKER_IMAGE_PYTHON` in `.env`
 - `cpp` — C/C++ (GCC latest)
   - Compiles with `gcc` (C) or `g++` (C++) based on file extension
   - Supports `-std=c++17` by default
-- `java` — Java (OpenJDK, coming soon)
+  - Default image: `gcc:latest`
+  - Custom image: Set `DOCKER_IMAGE_CPP` in `.env`
+- `java` — Java (OpenJDK 17)
   - Auto-compiles all `.java` files with `javac`
   - Executes specified main class
+  - Default image: `eclipse-temurin:17-jdk-alpine`
+  - Custom image: Set `DOCKER_IMAGE_JAVA` in `.env`
 
 ## Security Features
 

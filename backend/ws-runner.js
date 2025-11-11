@@ -37,12 +37,13 @@ function toDockerPosixPath(hostPath) {
 }
 
 /**
- * Language to Docker image mapping
+ * Language to Docker image mapping (can be overridden via env vars)
  */
 const LANGUAGE_IMAGES = {
-    node: 'node:18-alpine',
-    python: 'python:3.11-alpine',
-    cpp: 'gcc:latest'
+    node: process.env.DOCKER_IMAGE_NODE || 'node:18-alpine',
+    python: process.env.DOCKER_IMAGE_PYTHON || 'python:3.11-alpine',
+    cpp: process.env.DOCKER_IMAGE_CPP || 'gcc:latest',
+    java: process.env.DOCKER_IMAGE_JAVA || 'eclipse-temurin:17-jdk-alpine'
 };
 
 /**
