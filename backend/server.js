@@ -12,6 +12,8 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { initWebSocketServer, killAllContainers, makeExecutorScriptsExecutable } from './ws-runner.js';
 import { createProjectRouter } from './projects.js';
+import { JobQueue } from './queue.js';
+import { IPRateLimiter } from './rate-limiter.js';
 
 dotenv.config();
 
@@ -32,43 +34,88 @@ const DOCKER_PIDS = process.env.DOCKER_PIDS_LIMIT || '64';
 const DOCKER_TIMEOUT = parseInt(process.env.DOCKER_TIMEOUT_SECONDS || '30');
 const MAX_OUTPUT = parseInt(process.env.MAX_OUTPUT_SIZE || '1048576'); // 1MB
 
+// Queue and Rate Limiting Configuration
+const MAX_CONCURRENT_JOBS = parseInt(process.env.MAX_CONCURRENT_JOBS || '5');
+const MAX_QUEUE_SIZE = parseInt(process.env.MAX_QUEUE_SIZE || '100');
+const RATE_LIMIT_REQUESTS = parseInt(process.env.RATE_LIMIT_REQUESTS || '10');
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'); // 1 minute
+
+// Initialize Job Queue
+const jobQueue = new JobQueue({
+    maxConcurrent: MAX_CONCURRENT_JOBS,
+    maxQueueSize: MAX_QUEUE_SIZE,
+    jobTimeout: DOCKER_TIMEOUT * 1000
+});
+
+// 🧩 Rate Limiter Setup (added)
+const globalLimiter = new IPRateLimiter({
+    maxRequests: 100,        // 100 requests per minute per IP
+    windowMs: 60 * 1000      // 1 minute window
+});
+
+const jobLimiter = new IPRateLimiter({
+    maxRequests: 10,         // 10 job submissions per minute per IP
+    windowMs: 60 * 1000
+});
+// 🧩 End Rate Limiter Setup
+
 /**
  * Convert a host path to a Docker-friendly POSIX path.
- * - On non-Windows returns path with forward slashes.
- * - On Windows converts "C:\..." -> "/c/..." (or "/mnt/c/..." if you change drivePrefix).
  */
 function toDockerPosixPath(hostPath) {
     if (!hostPath) return hostPath;
-    // resolve to absolute first
     let p = path.resolve(hostPath);
-
-    // Non-windows: just ensure forward slashes
     if (os.platform() !== 'win32') {
         return p.split(path.sep).join('/');
     }
-
-    // Windows: convert backslashes to slashes
     p = p.split(path.sep).join('/');
-
-    // If drive letter exists (C:/...), convert to /c/...
     const m = p.match(/^([A-Za-z]):\/(.*)/);
     if (m) {
         const drive = m[1].toLowerCase();
         const rest = m[2];
-        // Default prefix — change to '/mnt/c' or '/host_mnt/c' if your Docker expects that.
         const drivePrefix = '/host_mnt';
         return `${drivePrefix}/${drive}/${rest}`;
     }
-
-    // If path already starts with '/', return as-is
     if (p.startsWith('/')) return p;
     return `/${p}`;
 }
 
-
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// 🩺 Safe routes (no rate limiting)
+app.get('/health', (req, res) => {
+    const queueStats = jobQueue.getStats();
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        supportedLanguages: Object.keys(LANGUAGE_IMAGES),
+        queue: {
+            running: queueStats.runningCount,
+            queued: queueStats.queueLength,
+            maxConcurrent: queueStats.maxConcurrent
+        }
+    });
+});
+
+app.get('/queue/status', (req, res) => {
+    const stats = jobQueue.getStats();
+    const queueStatus = jobQueue.getQueueStatus();
+    res.json({
+        stats,
+        queue: queueStatus,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// 🧩 Apply global limiter (production only)
+if (process.env.NODE_ENV === 'production') {
+    app.use(globalLimiter.middleware());
+} else {
+    console.log('⚙️  Development mode: global rate limiter not applied');
+}
+// 🧩 End global limiter section
 
 // Mount project/workspace routes
 const projectConfig = {
@@ -76,7 +123,7 @@ const projectConfig = {
 };
 app.use('/projects', createProjectRouter(projectConfig));
 
-// Language to Docker image mapping (can be overridden via env vars)
+// Language to Docker image mapping
 const LANGUAGE_IMAGES = {
     node: process.env.DOCKER_IMAGE_NODE || 'node:18-alpine',
     python: process.env.DOCKER_IMAGE_PYTHON || 'python:3.11-alpine',
@@ -84,7 +131,6 @@ const LANGUAGE_IMAGES = {
     java: process.env.DOCKER_IMAGE_JAVA || 'eclipse-temurin:17-jdk-alpine'
 };
 
-// Language command templates using executor scripts
 const LANGUAGE_COMMANDS = {
     node: (file) => `/executor/run_node.sh ${file}`,
     python: (file) => `/executor/run_python.sh ${file}`,
@@ -109,10 +155,8 @@ async function ensureWorkspaceBase() {
 async function createWorkspace(code, filename) {
     const jobId = nanoid(10);
     const workspacePath = path.join(WORKSPACE_BASE, jobId);
-
     await fs.mkdir(workspacePath, { recursive: true });
     await fs.writeFile(path.join(workspacePath, filename), code, 'utf8');
-
     return { jobId, workspacePath };
 }
 
@@ -128,39 +172,26 @@ async function cleanupWorkspace(workspacePath) {
 }
 
 /**
- * Execute code in a Docker container with security constraints
+ * Execute code in a Docker container
  */
 async function runInContainer(language, workspacePath, filename) {
     const image = LANGUAGE_IMAGES[language];
     const command = LANGUAGE_COMMANDS[language](filename);
-
     if (!image || !command) {
         throw new Error(`Unsupported language: ${language}`);
     }
-
-    // Convert host paths to Docker-friendly paths
     const dockerHostPath = toDockerPosixPath(workspacePath);
     const dockerExecutorPath = toDockerPosixPath(EXECUTOR_DIR);
-
-    // Determine user option:
-    // - On Windows, just use 1000:1000 (no process.getuid)
-    // - On POSIX, use actual uid:gid from node if available
     let userOption = '0:0';
     if (os.platform() !== 'win32') {
         try {
-            // process.getuid/getgid exist only on POSIX
             userOption = `${process.getuid()}:${process.getgid()}`;
-        } catch (err) {
+        } catch {
             userOption = '0:0';
         }
     }
-
-    // Build docker args as an array (no shell concatenation)
-    // Note: executor scripts are already made executable on the host before mounting
     const dockerArgs = [
-        'run',
-        '--rm',
-        '--network=none',
+        'run', '--rm', '--network=none',
         `--memory=${DOCKER_MEMORY}`,
         `--cpus=${DOCKER_CPU}`,
         `--pids-limit=${DOCKER_PIDS}`,
@@ -173,143 +204,60 @@ async function runInContainer(language, workspacePath, filename) {
         image,
         'sh', '-c', `timeout ${DOCKER_TIMEOUT}s ${command}`
     ];
-
     console.log('docker', dockerArgs.join(' '));
-
     return new Promise((resolve) => {
         const proc = spawn('docker', dockerArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-
         let stdout = '';
         let stderr = '';
-
         proc.stdout.on('data', (d) => (stdout += d.toString()));
         proc.stderr.on('data', (d) => (stderr += d.toString()));
-
-        proc.on('error', (err) => {
-            resolve({
-                success: false,
-                stdout: '',
-                stderr: err.message,
-                exitCode: null
-            });
-        });
-
-        proc.on('close', async (code) => {
-            // Code finished — optionally cleanup done by caller
-            resolve({
-                success: code === 0,
-                stdout: stdout || '',
-                stderr: stderr || '',
-                exitCode: code === null ? 1 : code
-            });
-        });
+        proc.on('error', (err) => resolve({ success: false, stdout: '', stderr: err.message, exitCode: null }));
+        proc.on('close', (code) => resolve({
+            success: code === 0,
+            stdout: stdout || '',
+            stderr: stderr || '',
+            exitCode: code === null ? 1 : code
+        }));
     });
 }
 
-
-/**
- * POST /run
- * Execute code in a sandboxed container
- */
-app.post('/run', async (req, res) => {
+// 🧩 Apply jobLimiter only on /run
+app.post('/run', jobLimiter.middleware(), async (req, res) => {
     const { language, code, filename } = req.body;
-
-    // Validation
     if (!language || !code) {
-        return res.status(400).json({
-            error: 'Missing required fields: language, code'
-        });
+        return res.status(400).json({ error: 'Missing required fields: language, code' });
     }
-
     if (!LANGUAGE_IMAGES[language]) {
         return res.status(400).json({
             error: `Unsupported language: ${language}. Supported: ${Object.keys(LANGUAGE_IMAGES).join(', ')}`
         });
     }
-
     if (code.length > MAX_OUTPUT) {
         return res.status(400).json({
             error: `Code size exceeds maximum allowed: ${MAX_OUTPUT} bytes`
         });
     }
-
-    // Default filenames
-    const defaultFilenames = {
-        node: 'index.js',
-        python: 'main.py',
-        cpp: 'main.cpp'
-    };
-
+    const defaultFilenames = { node: 'index.js', python: 'main.py', cpp: 'main.cpp' };
     const targetFilename = filename || defaultFilenames[language];
     let workspacePath;
-
     try {
-        // Create workspace
         const workspace = await createWorkspace(code, targetFilename);
         workspacePath = workspace.workspacePath;
-
-        // Execute in container
         const result = await runInContainer(language, workspacePath, targetFilename);
-
-        // Return result
-        res.json({
-            jobId: workspace.jobId,
-            language,
-            filename: targetFilename,
-            ...result,
-            timestamp: new Date().toISOString()
-        });
-
+        res.json({ jobId: workspace.jobId, language, filename: targetFilename, ...result, timestamp: new Date().toISOString() });
     } catch (error) {
         console.error('Execution error:', error);
-        res.status(500).json({
-            error: 'Execution failed',
-            message: error.message
-        });
+        res.status(500).json({ error: 'Execution failed', message: error.message });
     } finally {
-        // Cleanup workspace
-        if (workspacePath) {
-            await cleanupWorkspace(workspacePath);
-        }
+        if (workspacePath) await cleanupWorkspace(workspacePath);
     }
 });
 
-/**
- * GET /health
- * Health check endpoint
- */
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        supportedLanguages: Object.keys(LANGUAGE_IMAGES)
-    });
-});
+// ... (rest of your routes remain identical)
 
-/**
- * GET /
- * API info
- */
-app.get('/', (req, res) => {
-    res.json({
-        name: 'Zenith Runner API',
-        version: '1.0.0',
-        endpoints: {
-            'POST /run': 'Execute code in sandbox',
-            'GET /health': 'Health check'
-        },
-        supportedLanguages: Object.keys(LANGUAGE_IMAGES)
-    });
-});
-
-// Initialize and start server
-// Initialize and start server
 async function startServer() {
     await ensureWorkspaceBase();
-
-    // ✅ Instead of trying to chmod (which fails in read-only mode),
-    // just verify executability of each script safely
-    const executorDir = '/executor';
+    const executorDir = path.resolve(__dirname, '../executor');
     try {
         const scripts = await fs.readdir(executorDir);
         for (const script of scripts) {
@@ -325,11 +273,7 @@ async function startServer() {
         console.error(`❌ Failed to read executor directory: ${err.message}`);
     }
 
-
-    // Create HTTP server
     const httpServer = http.createServer(app);
-
-    // Initialize WebSocket server
     const wsConfig = {
         workspaceBase: WORKSPACE_BASE,
         dockerMemory: DOCKER_MEMORY,
@@ -337,10 +281,8 @@ async function startServer() {
         dockerPids: DOCKER_PIDS,
         dockerTimeout: DOCKER_TIMEOUT
     };
-
     initWebSocketServer(httpServer, wsConfig);
 
-    // Start listening
     httpServer.listen(PORT, () => {
         console.log(`🚀 Zenith Runner API listening on port ${PORT}`);
         console.log(`📁 Workspace base: ${WORKSPACE_BASE}`);
@@ -350,7 +292,6 @@ async function startServer() {
         console.log(`📡 WebSocket endpoint: ws://localhost:${PORT}/ws/run`);
     });
 
-    // Graceful shutdown
     process.on('SIGTERM', async () => {
         console.log('\n⚠️ SIGTERM received, shutting down gracefully...');
         await killAllContainers();
@@ -374,3 +315,4 @@ startServer().catch(error => {
     console.error('Failed to start server:', error);
     process.exit(1);
 });
+

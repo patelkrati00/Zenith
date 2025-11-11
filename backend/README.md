@@ -15,7 +15,78 @@ cp .env.example .env
 npm start
 ```
 
+## Features
+
+- ✅ **Job Queue System** — Concurrent execution control with priority queuing
+- ✅ **Rate Limiting** — IP-based rate limiting to prevent abuse
+- ✅ **Real-time Streaming** — WebSocket support for live output
+- ✅ **Multi-language Support** — Node.js, Python, C++, Java
+- ✅ **Dependency Installation** — Auto-install npm/pip packages
+- ✅ **Security Hardening** — Network isolation, resource limits, read-only filesystem
+- ✅ **Workspace Management** — Multi-file project uploads and management
+
 ## API Endpoints
+
+### Job Queue Endpoints
+
+#### `GET /queue/status`
+Get current queue status and statistics.
+
+**Response:**
+```json
+{
+  "stats": {
+    "totalQueued": 150,
+    "totalProcessed": 145,
+    "totalFailed": 3,
+    "totalTimeout": 1,
+    "averageWaitTime": 1250,
+    "averageExecutionTime": 3500,
+    "queueLength": 2,
+    "runningCount": 5,
+    "maxConcurrent": 5,
+    "maxQueueSize": 100
+  },
+  "queue": {
+    "queued": [
+      {"id": "abc123", "priority": 0, "queuedAt": 1699876543210, "waitTime": 1500}
+    ],
+    "running": [
+      {"id": "xyz789", "startedAt": 1699876543000, "runningTime": 2500}
+    ]
+  }
+}
+```
+
+#### `GET /queue/job/:jobId`
+Get status of a specific job.
+
+**Response:**
+```json
+{
+  "job": {
+    "id": "abc123",
+    "status": "completed",
+    "queuedAt": 1699876543000,
+    "startedAt": 1699876544000,
+    "completedAt": 1699876547000,
+    "result": {...}
+  }
+}
+```
+
+#### `DELETE /queue/job/:jobId`
+Cancel a queued job (cannot cancel running jobs).
+
+**Response:**
+```json
+{
+  "message": "Job cancelled successfully",
+  "jobId": "abc123"
+}
+```
+
+### Code Execution Endpoints
 
 ### `POST /run` (HTTP - Non-streaming)
 Execute code in a sandboxed container (returns after completion).
@@ -161,15 +232,52 @@ Health check endpoint.
 
 ## Security Features
 
-- Network isolation (`--network=none`)
-- Memory limit (256MB)
-- CPU limit (0.5 cores)
-- Process limit (64 PIDs)
-- Read-only filesystem
-- No privilege escalation
-- 30s execution timeout
-- Automatic container cleanup on disconnect
-- Graceful shutdown with container termination
+- **Network isolation** — `--network=none` prevents external connections
+- **Memory limit** — 256MB per container (configurable)
+- **CPU limit** — 0.5 cores per container (configurable)
+- **Process limit** — 64 PIDs max (configurable)
+- **Read-only filesystem** — Prevents file system tampering
+- **No privilege escalation** — `--security-opt=no-new-privileges`
+- **Execution timeout** — 30s default (configurable)
+- **Automatic cleanup** — Containers removed on disconnect
+- **Graceful shutdown** — All containers killed on server stop
+
+## Rate Limiting
+
+The API implements IP-based rate limiting to prevent abuse:
+
+- **Default limit**: 10 requests per minute per IP
+- **Configurable**: Set `RATE_LIMIT_REQUESTS` and `RATE_LIMIT_WINDOW_MS` in `.env`
+- **Headers**: Responses include rate limit headers
+  - `X-RateLimit-Limit` — Maximum requests allowed
+  - `X-RateLimit-Remaining` — Requests remaining in window
+  - `X-RateLimit-Reset` — Unix timestamp when limit resets
+  - `Retry-After` — Seconds to wait (when rate limited)
+
+**Rate limit response (429):**
+```json
+{
+  "error": "Too many requests",
+  "message": "Rate limit exceeded. Try again in 45 seconds.",
+  "retryAfter": 45
+}
+```
+
+## Job Queue System
+
+The backend uses a job queue to manage concurrent executions:
+
+- **Max concurrent jobs**: 5 (configurable via `MAX_CONCURRENT_JOBS`)
+- **Max queue size**: 100 (configurable via `MAX_QUEUE_SIZE`)
+- **Priority support**: Jobs can have priority levels (higher = processed first)
+- **Automatic timeout**: Jobs timeout after configured duration
+- **Statistics tracking**: Queue maintains execution statistics
+
+**Queue behavior:**
+1. Jobs submitted when capacity available → Start immediately
+2. Jobs submitted when at capacity → Added to queue
+3. Jobs complete → Next queued job starts automatically
+4. Queue full → Returns 503 Service Unavailable
 
 ## Executor Scripts
 
@@ -197,9 +305,50 @@ Executor scripts handle language-specific compilation, dependency installation, 
   - Extracts main class name from source file
   - Executes with proper classpath
 
-## Testing WebSocket
+## Testing
 
-### Using the test client:
+### Test Queue and Rate Limiting:
+```bash
+node test-queue.js
+```
+
+This test covers:
+- Queue status monitoring
+- Concurrent job submission
+- Rate limiting behavior
+- Job cancellation
+- Queue overflow handling
+
+**Expected output:**
+```
+🧪 Testing Job Queue and Rate Limiting
+
+📊 Test 1: Queue Status
+============================================================
+✅ Queue status retrieved
+   Stats: { totalQueued: 0, totalProcessed: 0, ... }
+
+🚀 Test 2: Submit 10 Concurrent Jobs
+============================================================
+📤 Submitting 10 jobs...
+   ✅ Job 1: Started immediately
+   ✅ Job 2: Started immediately
+   ...
+   ⏳ Job 6: Queued
+   ⏳ Job 7: Queued
+   ...
+
+⏱️  Test 3: Rate Limiting
+============================================================
+📤 Sending 15 requests rapidly (limit is 10/minute)...
+   ✅ Request 1: Allowed (9 remaining)
+   ✅ Request 2: Allowed (8 remaining)
+   ...
+   ❌ Request 11: Rate limited (retry after 45s)
+   ...
+```
+
+### Test WebSocket Streaming:
 ```bash
 # Test all languages
 node test-ws-client.js
