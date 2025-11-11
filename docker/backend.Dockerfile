@@ -33,11 +33,15 @@ COPY backend/package*.json ./
 # Copy application code
 COPY backend/*.js ./
 COPY backend/.env.example ./.env.example
-COPY executor /app/executor
 
-# Change ownership
-RUN chown -R appuser:appuser /app && \
-    chmod +x /app/executor/*.sh
+# Copy executor scripts from root and set executable permission
+COPY executor /app/executor
+RUN chmod 755 /app/executor/*.sh
+
+# Link executor path
+RUN ln -s /app/executor /executor && \
+    chown -R appuser:appuser /app
+
 
 # Switch to non-root user
 USER appuser

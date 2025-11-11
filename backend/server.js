@@ -303,9 +303,28 @@ app.get('/', (req, res) => {
 });
 
 // Initialize and start server
+// Initialize and start server
 async function startServer() {
     await ensureWorkspaceBase();
-    await makeExecutorScriptsExecutable();
+
+    // ✅ Instead of trying to chmod (which fails in read-only mode),
+    // just verify executability of each script safely
+    const executorDir = '/executor';
+    try {
+        const scripts = await fs.readdir(executorDir);
+        for (const script of scripts) {
+            const scriptPath = path.join(executorDir, script);
+            try {
+                await fs.access(scriptPath, fs.constants.X_OK);
+                console.log(`✅ ${script} is executable`);
+            } catch {
+                console.warn(`⚠️ ${script} might not be executable (check Docker build permissions)`);
+            }
+        }
+    } catch (err) {
+        console.error(`❌ Failed to read executor directory: ${err.message}`);
+    }
+
 
     // Create HTTP server
     const httpServer = http.createServer(app);
