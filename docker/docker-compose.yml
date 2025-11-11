@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Backend API Server
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: zenith-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - WORKSPACE_BASE_PATH=/tmp/ide-runner
+      - DOCKER_MEMORY_LIMIT=256m
+      - DOCKER_CPU_LIMIT=0.5
+      - DOCKER_PIDS_LIMIT=64
+      - DOCKER_TIMEOUT_SECONDS=30
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for spawning containers
+      - workspace-cache:/tmp/ide-runner
+      - ../executor:/app/executor:ro
+    restart: unless-stopped
+    networks:
+      - zenith-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Frontend Development Server (optional, for local dev)
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    container_name: zenith-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+      - VITE_WS_URL=ws://localhost:3001
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - zenith-network
+    depends_on:
+      - backend
+
+volumes:
+  workspace-cache:
+    driver: local
+
+networks:
+  zenith-network:
+    driver: bridge
