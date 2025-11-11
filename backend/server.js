@@ -14,6 +14,8 @@ import { initWebSocketServer, killAllContainers, makeExecutorScriptsExecutable }
 import { createProjectRouter } from './projects.js';
 import { JobQueue } from './queue.js';
 import { IPRateLimiter } from './rate-limiter.js';
+import { CacheManager } from './cache-manager.js';
+import { DockerLayerCache } from './docker-layer-cache.js';
 
 dotenv.config();
 
@@ -58,6 +60,18 @@ const jobLimiter = new IPRateLimiter({
     windowMs: 60 * 1000
 });
 // 🧩 End Rate Limiter Setup
+
+// Initialize Cache Managers
+const cacheManager = new CacheManager({
+    cacheDir: process.env.CACHE_DIR || '/tmp/ide-cache',
+    maxCacheSize: parseInt(process.env.MAX_CACHE_SIZE || String(1024 * 1024 * 1024)), // 1GB
+    maxCacheAge: parseInt(process.env.MAX_CACHE_AGE || String(7 * 24 * 60 * 60 * 1000)) // 7 days
+});
+
+const dockerLayerCache = new DockerLayerCache({
+    imagePrefix: 'zenith-cache',
+    maxImages: parseInt(process.env.MAX_CACHED_IMAGES || '50')
+});
 
 /**
  * Convert a host path to a Docker-friendly POSIX path.
@@ -107,6 +121,35 @@ app.get('/queue/status', (req, res) => {
         queue: queueStatus,
         timestamp: new Date().toISOString()
     });
+});
+
+// Cache management endpoints
+app.get('/cache/stats', (req, res) => {
+    const cacheStats = cacheManager.getStats();
+    const dockerStats = dockerLayerCache.getStats();
+    
+    res.json({
+        dependencyCache: cacheStats,
+        dockerLayerCache: dockerStats,
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.delete('/cache/clear', async (req, res) => {
+    try {
+        await cacheManager.clearCache();
+        await dockerLayerCache.clearCache();
+        
+        res.json({
+            message: 'Cache cleared successfully',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: 'Failed to clear cache',
+            message: error.message
+        });
+    }
 });
 
 // 🧩 Apply global limiter (production only)
@@ -257,6 +300,11 @@ app.post('/run', jobLimiter.middleware(), async (req, res) => {
 
 async function startServer() {
     await ensureWorkspaceBase();
+    
+    // Initialize cache managers
+    await cacheManager.initialize();
+    await dockerLayerCache.initialize();
+    
     const executorDir = path.resolve(__dirname, '../executor');
     try {
         const scripts = await fs.readdir(executorDir);
