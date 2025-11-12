@@ -37,7 +37,7 @@ function toDockerPosixPath(hostPath) {
 }
 
 /**
- * Language to Docker image mapping (can be overridden via env vars)
+ * Language to Docker image mapping
  */
 const LANGUAGE_IMAGES = {
     node: process.env.DOCKER_IMAGE_NODE || 'node:18-alpine',
@@ -48,7 +48,6 @@ const LANGUAGE_IMAGES = {
 
 /**
  * Language command templates using executor scripts
- * These scripts handle dependency installation and project execution
  */
 const LANGUAGE_COMMANDS = {
     node: (file) => `/executor/run_node.sh ${file}`,
@@ -63,7 +62,7 @@ const LANGUAGE_COMMANDS = {
 const activeContainers = new Map();
 
 /**
- * Make executor scripts executable on the host filesystem.
+ * Make executor scripts executable
  */
 export async function makeExecutorScriptsExecutable() {
     if (os.platform() === 'win32') {
@@ -74,7 +73,6 @@ export async function makeExecutorScriptsExecutable() {
     try {
         const files = await fs.readdir(EXECUTOR_DIR);
         const shellScripts = files.filter(f => f.endsWith('.sh'));
-
         for (const script of shellScripts) {
             const scriptPath = path.join(EXECUTOR_DIR, script);
             try {
@@ -82,10 +80,8 @@ export async function makeExecutorScriptsExecutable() {
                 console.log(`✓ Made executable: ${script}`);
             } catch (chmodError) {
                 if (chmodError.code === 'EROFS' || chmodError.code === 'EPERM') {
-                    console.warn(`⚠️  Cannot chmod ${script} (read-only filesystem), continuing...`);
-                } else {
-                    throw chmodError;
-                }
+                    console.warn(`⚠️ Cannot chmod ${script} (read-only filesystem), continuing...`);
+                } else throw chmodError;
             }
         }
     } catch (error) {
@@ -94,7 +90,7 @@ export async function makeExecutorScriptsExecutable() {
 }
 
 /**
- * Initialize WebSocket server for streaming code execution
+ * Initialize WebSocket server
  */
 export function initWebSocketServer(httpServer, config) {
     const wss = new WebSocketServer({
@@ -107,6 +103,19 @@ export function initWebSocketServer(httpServer, config) {
     wss.on('connection', (ws) => {
         console.log('🔌 Client connected to WebSocket');
 
+        // Heartbeat setup
+        ws.isAlive = true;
+        ws.on('pong', () => (ws.isAlive = true));
+        const pingInterval = setInterval(() => {
+            if (!ws.isAlive) {
+                console.warn('⚠️ Terminating stale websocket connection');
+                try { ws.terminate(); } catch { }
+                return;
+            }
+            ws.isAlive = false;
+            try { ws.ping(); } catch { }
+        }, 30000);
+
         let jobId = null;
         let dockerProcess = null;
         let workspacePath = null;
@@ -118,8 +127,11 @@ export function initWebSocketServer(httpServer, config) {
             }
         };
 
+        send('info', '✅ WebSocket connection established');
+
         const cleanup = async () => {
             if (executionTimeout) clearTimeout(executionTimeout);
+            clearInterval(pingInterval);
 
             if (dockerProcess && !dockerProcess.killed) {
                 console.log(`⚠️ Killing container for job ${jobId}`);
@@ -138,24 +150,45 @@ export function initWebSocketServer(httpServer, config) {
         };
 
         ws.on('message', async (message) => {
-            try {
-                const { language, code, filename, command, workspaceId: existingWorkspaceId } = JSON.parse(message.toString());
+    try {
+        // ✅ First parse the incoming message
+        const msg = JSON.parse(message.toString());
 
-                if (!language) {
-                    send('error', 'Missing required field: language');
-                    return;
-                }
-                if (!LANGUAGE_IMAGES[language]) {
-                    send('error', `Unsupported language: ${language}`);
-                    return;
-                }
+        // ✅ Handle frontend heartbeat ping
+        if (msg.type === 'ping') {
+            ws.send(JSON.stringify({ type: 'pong' }));
+            return; // stop further processing
+        }
 
-                const defaultFilenames = {
-                    node: 'index.js',
-                    python: 'main.py',
-                    cpp: 'main.cpp'
-                };
-                const targetFilename = filename || defaultFilenames[language];
+        // Destructure execution fields if this is a normal code run
+        const { language, code, filename, command, workspaceId: existingWorkspaceId } = msg;
+
+        if (!language) return send('error', 'Missing required field: language');
+        if (!LANGUAGE_IMAGES[language]) return send('error', `Unsupported language: ${language}`);
+
+        // ✅ FIXED dynamic filename logic
+        let targetFilename;
+        switch (language) {
+            case "python":
+                targetFilename = (!filename || !filename.endsWith(".py")) ? "main.py" : filename;
+                break;
+            case "cpp":
+                targetFilename = (!filename || !filename.endsWith(".cpp")) ? "main.cpp" : filename;
+                break;
+            case "java":
+                targetFilename = (!filename || !filename.endsWith(".java")) ? "Main.java" : filename;
+                break;
+            case "node":
+            case "javascript":
+            default:
+                targetFilename = (!filename || !filename.endsWith(".js")) ? "index.js" : filename;
+                break;
+        }
+
+        console.log(`📝 Selected filename for ${language}: ${targetFilename}`);
+
+        // (… keep the rest of your existing code here exactly as it is …)
+
 
                 if (existingWorkspaceId) {
                     jobId = existingWorkspaceId;
@@ -165,14 +198,10 @@ export function initWebSocketServer(httpServer, config) {
                         console.log(`🔄 Using existing workspace ${existingWorkspaceId}`);
                         send('info', `Using workspace ${existingWorkspaceId}`, existingWorkspaceId);
                     } catch {
-                        send('error', `Workspace ${existingWorkspaceId} not found`);
-                        return;
+                        return send('error', `Workspace ${existingWorkspaceId} not found`);
                     }
                 } else {
-                    if (!code) {
-                        send('error', 'Missing required field: code (when workspaceId not provided)');
-                        return;
-                    }
+                    if (!code) return send('error', 'Missing required field: code');
                     jobId = nanoid(10);
                     workspacePath = path.join(config.workspaceBase, jobId);
                     await fs.mkdir(workspacePath, { recursive: true });
@@ -181,43 +210,35 @@ export function initWebSocketServer(httpServer, config) {
                     send('info', `Job ${jobId} started`, jobId);
                 }
 
-                // ✅ Auto-install Node dependencies if package.json exists
+                // Auto-install dependencies
                 if (language === 'node') {
-                    const packageJsonPath = path.join(workspacePath, 'package.json');
+                    const pkg = path.join(workspacePath, 'package.json');
                     try {
-                        await fs.access(packageJsonPath);
+                        await fs.access(pkg);
                         send('info', '📦 Detected package.json — installing dependencies...');
-                        console.log(`📦 Installing dependencies for job ${jobId}`);
                         execSync('npm install --omit=dev --no-audit --no-fund', {
                             cwd: workspacePath,
                             stdio: 'inherit',
                             shell: true
                         });
                         send('info', '✅ Dependencies installed successfully');
-                    } catch {
-                        // no package.json present, skip silently
-                    }
+                    } catch { }
                 }
 
-                // ✅ Auto-install Python dependencies if requirements.txt exists
                 if (language === 'python') {
-                    const requirementsPath = path.join(workspacePath, 'requirements.txt');
+                    const req = path.join(workspacePath, 'requirements.txt');
                     try {
-                        await fs.access(requirementsPath);
+                        await fs.access(req);
                         send('info', '📦 Detected requirements.txt — installing Python dependencies...');
-                        console.log(`📦 Installing Python dependencies for job ${jobId}`);
                         execSync(`pip install --no-cache-dir -r requirements.txt`, {
                             cwd: workspacePath,
                             stdio: 'inherit',
                             shell: true
                         });
                         send('info', '✅ Python dependencies installed successfully');
-                    } catch {
-                        // No requirements.txt, skip silently
-                    }
+                    } catch { }
                 }
 
-                // Build Docker command
                 const image = LANGUAGE_IMAGES[language];
                 const execCommand = command || LANGUAGE_COMMANDS[language](targetFilename);
                 const dockerHostPath = toDockerPosixPath(workspacePath);
@@ -249,6 +270,7 @@ export function initWebSocketServer(httpServer, config) {
                     'sh', '-c', `timeout ${config.dockerTimeout}s ${execCommand}`
                 ];
 
+                console.log(`🐳 Starting container for ${language} → ${targetFilename}`);
                 console.log('🐳 docker', dockerArgs.join(' '));
 
                 dockerProcess = spawn('docker', dockerArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -272,8 +294,8 @@ export function initWebSocketServer(httpServer, config) {
                 executionTimeout = setTimeout(async () => {
                     console.log(`⏱️ Job ${jobId} timed out`);
                     send('error', 'Execution timeout exceeded');
+                    try { ws.close(1000, 'execution timeout'); } catch { }
                     await cleanup();
-                    ws.close();
                 }, (config.dockerTimeout + 5) * 1000);
 
             } catch (error) {
@@ -287,7 +309,9 @@ export function initWebSocketServer(httpServer, config) {
             await cleanup();
         });
 
-        ws.on('error', (error) => console.error('WebSocket error:', error.message));
+        ws.on('error', (err) => {
+            console.error('WebSocket runtime error:', err?.stack || err);
+        });
     });
 
     return wss;

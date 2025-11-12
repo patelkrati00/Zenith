@@ -4,7 +4,7 @@ import Sidebar from "./EditorPage/Sidebar";
 import ActivityBar from "./EditorPage/ActivityBar";
 import EditorTabs from "./EditorPage/EditorTabs";
 import CodeEditor from "./EditorPage/CodeEditor";
-import Terminal from "./EditorPage/Terminal";
+import { OutputPanel } from "./OutputPanel/OutputPanel"; // ✅ main execution output terminal
 import StatusBar from "./EditorPage/StatusBar";
 import CommandPalette from "./EditorPage/CommandPalette";
 import GitPanel from "./EditorPage/GitPanel";
@@ -12,10 +12,12 @@ import GitPanel from "./EditorPage/GitPanel";
 const EditorPage = () => {
   const [cursorPosition, setCursorPosition] = useState({ line: 1, col: 1 });
   const [indentation, setIndentation] = useState("Spaces: 2");
-  const [language, setLanguage] = useState("JavaScript");
+  const [language, setLanguage] = useState("javascript");
+  const [code, setCode] = useState("");
+  const [filename, setFilename] = useState("index.js");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [openFolders, setOpenFolders] = useState(new Set());
-  const [isTerminalOpen, setIsTerminalOpen] = useState(true);
+  const [isOutputOpen, setIsOutputOpen] = useState(true);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   // Command Palette keyboard shortcuts
@@ -36,10 +38,6 @@ const EditorPage = () => {
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const toggleTerminal = () => {
-    setIsTerminalOpen((prev) => !prev);
   };
 
   const toggleFolder = (path) => {
@@ -98,11 +96,19 @@ const EditorPage = () => {
               onCursorChange={setCursorPosition}
               onIndentChange={setIndentation}
               onLanguageChange={setLanguage}
+              onCodeChange={setCode}
             />
           </div>
 
-          {/* Terminal Panel */}
-          <Terminal isOpen={isTerminalOpen} onToggle={toggleTerminal} />
+          {/* Output Panel (Code Execution) */}
+          <OutputPanel
+            isOpen={isOutputOpen}
+            onToggle={() => setIsOutputOpen(!isOutputOpen)}
+            code={code}
+            language={language}
+            filename={filename}
+            onLanguageChange={setLanguage}
+          />
         </div>
 
         {/* Git Panel - Hidden on small screens */}

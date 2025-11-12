@@ -265,36 +265,36 @@ async function runInContainer(language, workspacePath, filename) {
 }
 
 // 🧩 Apply jobLimiter only on /run
-app.post('/run', jobLimiter.middleware(), async (req, res) => {
-    const { language, code, filename } = req.body;
-    if (!language || !code) {
-        return res.status(400).json({ error: 'Missing required fields: language, code' });
-    }
-    if (!LANGUAGE_IMAGES[language]) {
-        return res.status(400).json({
-            error: `Unsupported language: ${language}. Supported: ${Object.keys(LANGUAGE_IMAGES).join(', ')}`
-        });
-    }
-    if (code.length > MAX_OUTPUT) {
-        return res.status(400).json({
-            error: `Code size exceeds maximum allowed: ${MAX_OUTPUT} bytes`
-        });
-    }
-    const defaultFilenames = { node: 'index.js', python: 'main.py', cpp: 'main.cpp' };
-    const targetFilename = filename || defaultFilenames[language];
-    let workspacePath;
-    try {
-        const workspace = await createWorkspace(code, targetFilename);
-        workspacePath = workspace.workspacePath;
-        const result = await runInContainer(language, workspacePath, targetFilename);
-        res.json({ jobId: workspace.jobId, language, filename: targetFilename, ...result, timestamp: new Date().toISOString() });
-    } catch (error) {
-        console.error('Execution error:', error);
-        res.status(500).json({ error: 'Execution failed', message: error.message });
-    } finally {
-        if (workspacePath) await cleanupWorkspace(workspacePath);
-    }
-});
+// app.post('/run', jobLimiter.middleware(), async (req, res) => {
+//     const { language, code, filename } = req.body;
+//     if (!language || !code) {
+//         return res.status(400).json({ error: 'Missing required fields: language, code' });
+//     }
+//     if (!LANGUAGE_IMAGES[language]) {
+//         return res.status(400).json({
+//             error: `Unsupported language: ${language}. Supported: ${Object.keys(LANGUAGE_IMAGES).join(', ')}`
+//         });
+//     }
+//     if (code.length > MAX_OUTPUT) {
+//         return res.status(400).json({
+//             error: `Code size exceeds maximum allowed: ${MAX_OUTPUT} bytes`
+//         });
+//     }
+//     const defaultFilenames = { node: 'index.js', python: 'main.py', cpp: 'main.cpp' };
+//     const targetFilename = filename || defaultFilenames[language];
+//     let workspacePath;
+//     try {
+//         const workspace = await createWorkspace(code, targetFilename);
+//         workspacePath = workspace.workspacePath;
+//         const result = await runInContainer(language, workspacePath, targetFilename);
+//         res.json({ jobId: workspace.jobId, language, filename: targetFilename, ...result, timestamp: new Date().toISOString() });
+//     } catch (error) {
+//         console.error('Execution error:', error);
+//         res.status(500).json({ error: 'Execution failed', message: error.message });
+//     } finally {
+//         if (workspacePath) await cleanupWorkspace(workspacePath);
+//     }
+// });
 
 // ... (rest of your routes remain identical)
 

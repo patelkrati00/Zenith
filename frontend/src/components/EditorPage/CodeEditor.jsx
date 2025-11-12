@@ -3,11 +3,12 @@ import { useEffect, useRef } from 'react';
 const CodeEditor = ({ 
   onCursorChange, 
   onIndentChange, 
-  onLanguageChange 
+  onLanguageChange,
+  onCodeChange
 }) => {
 
   const monacoInstanceRef = useRef(null);
-  const containerRef = useRef(null );
+  const containerRef = useRef(null);
 
   useEffect(() => {
 
@@ -44,6 +45,14 @@ hello();
       });
 
       monacoInstanceRef.current = editor;
+
+      // ✅ Initial code value
+      onCodeChange?.(editor.getValue());
+
+      // ✅ Code change listener
+      editor.onDidChangeModelContent(() => {
+        onCodeChange?.(editor.getValue());
+      });
 
       // ✅ Cursor Update
       editor.onDidChangeCursorPosition(() => {
@@ -93,7 +102,7 @@ hello();
       document.body.appendChild(script);
     }
 
-  }, [onCursorChange, onIndentChange, onLanguageChange]);
+  }, [onCursorChange, onIndentChange, onLanguageChange, onCodeChange]);
 
   return (
     <div style={{ width: "100%", height: "100%", background: "#1e1e1e" }}>

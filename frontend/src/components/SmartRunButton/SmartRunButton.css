@@ -1,0 +1,181 @@
+.smart-run-button-container {
+    position: relative;
+    display: inline-block;
+}
+
+.smart-run-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: #0e639c;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+    position: relative;
+}
+
+.smart-run-button:hover:not(:disabled) {
+    background: #1177bb;
+    box-shadow: 0 2px 8px rgba(14, 99, 156, 0.3);
+}
+
+.smart-run-button:active:not(:disabled) {
+    background: #0d5a8f;
+    transform: translateY(1px);
+}
+
+.smart-run-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.smart-run-button.auto-detected {
+    background: linear-gradient(135deg, #0e639c 0%, #1177bb 100%);
+    border-color: #4ec9b0;
+    animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(78, 201, 176, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 15px rgba(78, 201, 176, 0.5);
+    }
+}
+
+.smart-run-button.running {
+    background: #0e639c;
+    animation: none;
+}
+
+.sparkle-icon {
+    color: #4ec9b0;
+    animation: sparkle 1.5s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+}
+
+.pulse {
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.button-text {
+    font-weight: 600;
+}
+
+/* Tooltip */
+.run-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 280px;
+    background: #252526;
+    border: 1px solid #4ec9b0;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    animation: tooltipFadeIn 0.2s ease-out;
+    overflow: hidden;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #1a4d2e;
+    color: #4ec9b0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tooltip-content {
+    padding: 12px;
+}
+
+.tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 12px;
+}
+
+.tooltip-label {
+    color: #858585;
+    font-weight: 500;
+}
+
+.tooltip-value {
+    color: #cccccc;
+    font-family: 'Cascadia Mono', Consolas, monospace;
+}
+
+.tooltip-command {
+    padding: 8px 12px;
+    background: #1e1e1e;
+    border-top: 1px solid #3c3c3c;
+}
+
+.tooltip-command code {
+    display: block;
+    color: #4ec9b0;
+    font-size: 11px;
+    font-family: 'Cascadia Mono', Consolas, monospace;
+    word-break: break-all;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .smart-run-button {
+        padding: 6px 12px;
+    }
+
+    .button-text {
+        display: none;
+    }
+
+    .run-tooltip {
+        min-width: 240px;
+        left: auto;
+        right: 0;
+    }
+}
