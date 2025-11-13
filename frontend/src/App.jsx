@@ -6,6 +6,8 @@ import './App.css';
 import Login from "./components/auth/Login";
 import Signup from "./components/auth/Signup";
 import './styles/style.css'
+import {AdminDashboard} from "./components/AdminDashboard/AdminDashboard";
+
 
 function App() {
   return (
@@ -15,6 +17,8 @@ function App() {
         <Route path="/editor" element={<EditorPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+          <Route path="/dashboard" element={<AdminDashboard />} />
+
       </Routes>
     </Router>
   );
