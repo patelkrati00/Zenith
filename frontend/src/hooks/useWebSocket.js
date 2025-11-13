@@ -76,20 +76,30 @@ export function useWebSocket(url, options = {}) {
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log("📩 WebSocket message received:", data);
 
-                            console.log("📩 WebSocket message received:", data);
-
-                    // Handle server heartbeat pongs 
+                    // Heartbeat messages
                     if (data?.type === 'pong' || data?.type === 'ping') {
                         clearTimeout(heartbeatTimeoutRef.current);
                         return;
                     }
 
+                    // Normalize exit event
+                    if (data.type === "exit") {
+                        onMessage?.({
+                            type: "exit",
+                            code: data.code ?? 0
+                        });
+                        return;
+                    }
+
+                    // Forward everything else
                     onMessage?.(data);
                 } catch (error) {
                     console.error('Failed to parse WebSocket message:', error);
                 }
             };
+
 
             ws.onerror = (event) => {
                 console.error('❌ WebSocket error:', event);

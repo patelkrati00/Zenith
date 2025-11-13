@@ -2,42 +2,38 @@ import { useState, useRef, useEffect } from 'react';
 import { Play, Square, Trash2, Loader2, CheckCircle, XCircle, Clock, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { Terminal } from '../Terminal/Terminal';
-import { LanguageSelector } from '../LanguageSelector/LanguageSelector';
+import { LanguageSelector } from '../LanguageSelector/LanguageSelector';   // ✅ RESTORED
 import './OutputPanel.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const WS_URL = API_URL.replace('http', 'ws') + '/ws/run';
 
-/**
- * OutputPanel component
- * Integrated code execution panel with terminal output
- */
 export function OutputPanel({ isOpen, onToggle, code, language, filename, onLanguageChange }) {
     const [status, setStatus] = useState('idle');
     const [exitCode, setExitCode] = useState(null);
     const [executionTime, setExecutionTime] = useState(0);
-    const [startTime, setStartTime] = useState(null);
     const [height, setHeight] = useState(250);
     const [isResizing, setIsResizing] = useState(false);
     const [selectedLanguage, setSelectedLanguage] = useState(language || 'node');
+
     const terminalRef = useRef(null);
     const timerRef = useRef(null);
-    const startYRef = useRef(0);
-    const startHeightRef = useRef(0);
+    const startTime = useRef(null);
+    const outputBuffer = useRef([]);
+    const startY = useRef(0);
+    const startH = useRef(0);
 
-    // Update selected language when prop changes
+    // Update language
     useEffect(() => {
-        if (language) {
-            setSelectedLanguage(language);
-        }
+        if (language) setSelectedLanguage(language);
     }, [language]);
 
-    function handleLanguageChange(newLanguage) {
-        setSelectedLanguage(newLanguage);
-        onLanguageChange?.(newLanguage);
+    function handleLanguageChange(newLang) {
+        setSelectedLanguage(newLang);
+        onLanguageChange?.(newLang);
     }
 
-    const { connect, disconnect, send, isConnected } = useWebSocket(WS_URL, {
+    const { connect, disconnect, send } = useWebSocket(WS_URL, {
         onMessage: handleMessage,
         onOpen: handleOpen,
         onClose: handleClose,
@@ -45,136 +41,137 @@ export function OutputPanel({ isOpen, onToggle, code, language, filename, onLang
         reconnect: false
     });
 
-    const outputBuffer = useRef([]);
-
-   function handleMessage(data) {
-    const { type, data: content } = data;
-    const term = terminalRef.current?.terminal;
-
-    // Buffer until terminal ready
-    if (!term) {
-        outputBuffer.current.push(data);
-        return;
-    }
-
-    // Flush buffer if new terminal ready
-    if (outputBuffer.current.length > 0) {
-        outputBuffer.current.forEach((msg) => handleMessage(msg));
-        outputBuffer.current = [];
-    }
-
-    switch (type) {
-        case 'info':
-            term.writeln(`\x1b[36mℹ ${content}\x1b[0m`);
-            break;
-        case 'stdout':
-            term.write(content);
-            break;
-        case 'stderr':
-            term.write(`\x1b[31m${content}\x1b[0m`);
-            break;
-        case 'exit':
-            // same as before...
-            break;
-        case 'error':
-            // same as before...
-            break;
-    }
-}
-
-
-    function handleOpen() {
-    const term = terminalRef.current?.terminal;
-    setStatus('running');
-    term?.clear();
-    term?.writeln('\x1b[36m🚀 Starting execution...\x1b[0m\n');
-
-    const lang = selectedLanguage || language || "python"; // ✅ always send something
-
-    send({
-        language: lang,
-        code,
-        filename: filename || getDefaultFilename(lang)
-    });
-
-    startTimer();
-}
-
-    function handleClose() {
+    // ------------------ MESSAGE HANDLER ------------------
+    function handleMessage(msg) {
+        const { type, data: content, code } = msg;
         const term = terminalRef.current?.terminal;
-        if (status === 'running') {
-            setStatus('failed');
-            stopTimer();
-            term?.writeln('\n\x1b[31m✗ Connection closed unexpectedly\x1b[0m');
+
+        if (!term) {
+            outputBuffer.current.push(msg);
+            return;
+        }
+
+        if (outputBuffer.current.length) {
+            outputBuffer.current.forEach(m => handleMessage(m));
+            outputBuffer.current = [];
+        }
+
+        switch (type) {
+            case "info":
+                term.writeln(`\x1b[36mℹ ${content}\x1b[0m`);
+                break;
+
+            case "stdout":
+                term.write(content);
+                break;
+
+            case "stderr":
+                term.write(`\x1b[31m${content}\x1b[0m`);
+                break;
+
+            case "exit":
+                stopTimer();
+                setStatus("completed");
+                setExitCode(code ?? 0);
+
+                term.writeln(`\n\x1b[32m✓ Execution finished (exit code ${code})\x1b[0m`);
+
+                setTimeout(() => disconnect(), 300);
+                break;
+
+            case "error":
+                stopTimer();
+                setStatus("failed");
+                setExitCode(1);
+
+                term.writeln(`\n\x1b[31m✗ Error: ${content}\x1b[0m`);
+                setTimeout(() => disconnect(), 300);
+
+                break;
         }
     }
 
-
-    function handleError() {
+    // ------------------ WS EVENTS ------------------
+    function handleOpen() {
         const term = terminalRef.current?.terminal;
-        setStatus('failed');
-        stopTimer();
-        term?.writeln('\n\x1b[31m✗ Connection error\x1b[0m');
+        setStatus("running");
+
+        term?.clear();
+        term?.writeln(`\x1b[36m🚀 Starting execution...\x1b[0m\n`);
+
+        const lang = selectedLanguage || language || "python";
+
+        send({
+            language: lang,
+            code,
+            filename: filename || getDefaultFilename(lang)
+        });
+
+        startTimer();
     }
 
+    function handleClose() {
+        if (status === "running") {
+            stopTimer();
+            setStatus("failed");
+            terminalRef.current?.terminal?.writeln(
+                `\n\x1b[31m✗ Connection closed unexpectedly\x1b[0m`
+            );
+        }
+    }
 
+    function handleError() {
+        stopTimer();
+        setStatus("failed");
+        terminalRef.current?.terminal?.writeln(
+            `\n\x1b[31m✗ Connection error\x1b[0m`
+        );
+    }
+
+    // ------------------ TIMER ------------------
     function startTimer() {
-        const start = Date.now();
-        setStartTime(start);
-        setExecutionTime(0);
-
+        startTime.current = Date.now();
         timerRef.current = setInterval(() => {
-            setExecutionTime(Date.now() - start);
+            setExecutionTime(Date.now() - startTime.current);
         }, 100);
     }
 
     function stopTimer() {
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-        }
+        clearInterval(timerRef.current);
+        timerRef.current = null;
     }
 
+    // ------------------ ACTIONS ------------------
     function handleRun() {
-        if (!code || !language) {
-            Terminal.writeln(terminalRef.current, '\x1b[31m✗ No code to execute\x1b[0m');
-            return;
-        }
-
-        setStatus('connecting');
+        setStatus("connecting");
         setExitCode(null);
         setExecutionTime(0);
         connect();
     }
 
     function handleStop() {
-        const term = terminalRef.current?.terminal;
-        if (isConnected) {
-            term?.writeln('\n\x1b[33m⚠ Stopping execution...\x1b[0m');
-            disconnect();
-            setStatus('idle');
-            stopTimer();
-        }
+        terminalRef.current?.terminal?.writeln(`\n\x1b[33m⚠ Stopping...\x1b[0m`);
+        disconnect();
+        stopTimer();
+        setStatus("idle");
     }
 
     function handleClear() {
-        const term = terminalRef.current?.terminal;
-        term?.clear();
-        setStatus('idle');
+        terminalRef.current?.terminal?.clear();
+        setStatus("idle");
         setExitCode(null);
         setExecutionTime(0);
     }
 
     function getDefaultFilename(lang) {
-        const defaults = {
-            javascript: 'index.js',
-            node: 'index.js',
-            python: 'main.py',
-            cpp: 'main.cpp',
-            c: 'main.c',
-            java: 'Main.java'
-        };
-        return defaults[lang] || 'code.txt';
+        return {
+            javascript: "index.js",
+            node: "index.js",
+            python: "main.py",
+            cpp: "main.cpp",
+            c: "main.c",
+            java: "Main.java"
+        }[lang] || "main.txt";
     }
 
     function formatTime(ms) {
@@ -182,200 +179,119 @@ export function OutputPanel({ isOpen, onToggle, code, language, filename, onLang
         return `${(ms / 1000).toFixed(2)}s`;
     }
 
-    // Resize handlers
-    const handleMouseDown = (e) => {
+    // ------------------ RESIZE ------------------
+    function startResize(e) {
         setIsResizing(true);
-        startYRef.current = e.clientY;
-        startHeightRef.current = height;
-        e.preventDefault();
-    };
+        startY.current = e.clientY;
+        startH.current = height;
+    }
 
     useEffect(() => {
-        const handleMouseMove = (e) => {
+        function move(e) {
             if (!isResizing) return;
-            const deltaY = startYRef.current - e.clientY;
-            const newHeight = Math.min(Math.max(startHeightRef.current + deltaY, 100), 600);
-            setHeight(newHeight);
-        };
-
-        const handleMouseUp = () => {
-            setIsResizing(false);
-        };
+            const dy = startY.current - e.clientY;
+            setHeight(Math.min(Math.max(startH.current + dy, 100), 600));
+        }
+        function stop() { setIsResizing(false); }
 
         if (isResizing) {
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener("mousemove", move);
+            window.addEventListener("mouseup", stop);
         }
-
         return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener("mousemove", move);
+            window.removeEventListener("mouseup", stop);
         };
     }, [isResizing]);
 
-    // Keyboard shortcut for run (Ctrl+Enter)
     useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                e.preventDefault();
-                if (status === 'idle' || status === 'completed' || status === 'failed') {
-                    handleRun();
-                }
-            }
+        return () => {
+            disconnect();
+            stopTimer();
         };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [code, language, status]);
-
-
-    useEffect(() => {
-    return () => {
-        console.log("🧹 Cleaning up timer + WebSocket");
-        stopTimer();
-        disconnect();
-    };
-}, [disconnect]);
-
+    }, [disconnect]);
 
     if (!isOpen) return null;
 
-    const isRunning = status === 'running' || status === 'connecting';
+    const isRunning = status === "running" || status === "connecting";
     const canRun = !isRunning && code && language;
 
+    // ------------------ UI ------------------
     return (
-        <div
-            className="output-panel"
-            style={{ height: `${height}px` }}
-        >
-            {/* Resize Handle */}
-            <div
-                onMouseDown={handleMouseDown}
-                className={`resize-handle ${isResizing ? 'active' : ''}`}
-                title="Drag to resize panel"
-            />
+        <div className="output-panel" style={{ height }}>
+            <div className={`resize-handle ${isResizing ? "active" : ""}`} onMouseDown={startResize} />
 
-            {/* Header */}
+            {/* HEADER */}
             <div className="output-header">
                 <div className="header-left">
                     <span className="panel-title">OUTPUT</span>
 
                     <div className="header-controls">
+
+                        {/* 🌍 LANGUAGE SELECTOR (RESTORED) */}
                         <LanguageSelector
                             value={selectedLanguage}
-                            onChange={handleLanguageChange}
                             disabled={isRunning}
+                            onChange={handleLanguageChange}
                         />
 
-                        <button
-                            onClick={handleRun}
-                            disabled={!canRun}
-                            className="btn btn-run"
-                            title="Run code (Ctrl+Enter)"
-                        >
-                            {isRunning ? (
-                                <Loader2 className="icon-spin" size={14} />
-                            ) : (
-                                <Play size={14} />
-                            )}
+                        {/* ▶ RUN */}
+                        <button onClick={handleRun} disabled={!canRun} className="btn btn-run">
+                            {isRunning ? <Loader2 className="icon-spin" size={14} /> : <Play size={14} />}
                             <span>Run</span>
                         </button>
 
+                        {/* ■ STOP */}
                         {isRunning && (
-                            <button
-                                onClick={handleStop}
-                                className="btn btn-stop"
-                                title="Stop execution"
-                            >
+                            <button onClick={handleStop} className="btn btn-stop">
                                 <Square size={14} />
                             </button>
                         )}
 
-                        <button
-                            onClick={handleClear}
-                            disabled={isRunning}
-                            className="btn btn-clear"
-                            title="Clear output"
-                        >
+                        {/* 🧹 CLEAR */}
+                        <button onClick={handleClear} disabled={isRunning} className="btn btn-clear">
                             <Trash2 size={14} />
                         </button>
 
-                        <div className="divider" />
-
-                        <button
-                            onClick={() => setHeight(600)}
-                            className="btn btn-icon"
-                            title="Maximize panel"
-                        >
+                        {/* MAX / MIN / HIDE */}
+                        <button onClick={() => setHeight(600)} className="btn btn-icon">
                             <Maximize2 size={14} />
                         </button>
-
-                        <button
-                            onClick={() => setHeight(250)}
-                            className="btn btn-icon"
-                            title="Restore panel"
-                        >
+                        <button onClick={() => setHeight(250)} className="btn btn-icon">
                             <Minimize2 size={14} />
                         </button>
-
-                        <button
-                            onClick={onToggle}
-                            className="btn btn-icon"
-                            title="Hide panel"
-                        >
+                        <button onClick={onToggle} className="btn btn-icon">
                             <ChevronDown size={14} />
                         </button>
                     </div>
                 </div>
 
+                {/* RIGHT SIDE: Status + Timer + Exit */}
                 <div className="header-right">
-                    {/* Status Badge */}
                     <div className={`status-badge status-${status}`}>
-                        {status === 'idle' && <span>Ready</span>}
-                        {status === 'connecting' && (
-                            <>
-                                <Loader2 className="icon-spin" size={12} />
-                                <span>Connecting</span>
-                            </>
-                        )}
-                        {status === 'running' && (
-                            <>
-                                <Loader2 className="icon-spin" size={12} />
-                                <span>Running</span>
-                            </>
-                        )}
-                        {status === 'completed' && (
-                            <>
-                                <CheckCircle size={12} />
-                                <span>Completed</span>
-                            </>
-                        )}
-                        {status === 'failed' && (
-                            <>
-                                <XCircle size={12} />
-                                <span>Failed</span>
-                            </>
-                        )}
+                        {status === "idle" && "Ready"}
+                        {status === "connecting" && "Connecting…"}
+                        {status === "running" && "Running…"}
+                        {status === "completed" && "Completed ✓"}
+                        {status === "failed" && "Failed ✗"}
                     </div>
 
-                    {/* Execution Time */}
-                    {(status === 'running' || status === 'completed' || status === 'failed') && executionTime > 0 && (
+                    {(status !== "idle") && (
                         <div className="execution-time">
                             <Clock size={12} />
                             <span>{formatTime(executionTime)}</span>
                         </div>
                     )}
 
-                    {/* Exit Code */}
                     {exitCode !== null && (
-                        <div className={`exit-code ${exitCode === 0 ? 'success' : 'error'}`}>
+                        <div className={`exit-code ${exitCode === 0 ? "success" : "error"}`}>
                             Exit: {exitCode}
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Terminal Output */}
+            {/* TERMINAL */}
             <div className="output-terminal">
                 <Terminal ref={terminalRef} />
             </div>

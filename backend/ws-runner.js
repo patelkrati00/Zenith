@@ -150,44 +150,44 @@ export function initWebSocketServer(httpServer, config) {
         };
 
         ws.on('message', async (message) => {
-    try {
-        // ✅ First parse the incoming message
-        const msg = JSON.parse(message.toString());
+            try {
+                // ✅ First parse the incoming message
+                const msg = JSON.parse(message.toString());
 
-        // ✅ Handle frontend heartbeat ping
-        if (msg.type === 'ping') {
-            ws.send(JSON.stringify({ type: 'pong' }));
-            return; // stop further processing
-        }
+                // ✅ Handle frontend heartbeat ping
+                if (msg.type === 'ping') {
+                    ws.send(JSON.stringify({ type: 'pong' }));
+                    return; // stop further processing
+                }
 
-        // Destructure execution fields if this is a normal code run
-        const { language, code, filename, command, workspaceId: existingWorkspaceId } = msg;
+                // Destructure execution fields if this is a normal code run
+                const { language, code, filename, command, workspaceId: existingWorkspaceId } = msg;
 
-        if (!language) return send('error', 'Missing required field: language');
-        if (!LANGUAGE_IMAGES[language]) return send('error', `Unsupported language: ${language}`);
+                if (!language) return send('error', 'Missing required field: language');
+                if (!LANGUAGE_IMAGES[language]) return send('error', `Unsupported language: ${language}`);
 
-        // ✅ FIXED dynamic filename logic
-        let targetFilename;
-        switch (language) {
-            case "python":
-                targetFilename = (!filename || !filename.endsWith(".py")) ? "main.py" : filename;
-                break;
-            case "cpp":
-                targetFilename = (!filename || !filename.endsWith(".cpp")) ? "main.cpp" : filename;
-                break;
-            case "java":
-                targetFilename = (!filename || !filename.endsWith(".java")) ? "Main.java" : filename;
-                break;
-            case "node":
-            case "javascript":
-            default:
-                targetFilename = (!filename || !filename.endsWith(".js")) ? "index.js" : filename;
-                break;
-        }
+                // ✅ FIXED dynamic filename logic
+                let targetFilename;
+                switch (language) {
+                    case "python":
+                        targetFilename = (!filename || !filename.endsWith(".py")) ? "main.py" : filename;
+                        break;
+                    case "cpp":
+                        targetFilename = (!filename || !filename.endsWith(".cpp")) ? "main.cpp" : filename;
+                        break;
+                    case "java":
+                        targetFilename = (!filename || !filename.endsWith(".java")) ? "Main.java" : filename;
+                        break;
+                    case "node":
+                    case "javascript":
+                    default:
+                        targetFilename = (!filename || !filename.endsWith(".js")) ? "index.js" : filename;
+                        break;
+                }
 
-        console.log(`📝 Selected filename for ${language}: ${targetFilename}`);
+                console.log(`📝 Selected filename for ${language}: ${targetFilename}`);
 
-        // (… keep the rest of your existing code here exactly as it is …)
+                // (… keep the rest of your existing code here exactly as it is …)
 
 
                 if (existingWorkspaceId) {
@@ -281,8 +281,17 @@ export function initWebSocketServer(httpServer, config) {
 
                 dockerProcess.on('close', async (exitCode) => {
                     console.log(`✅ Job ${jobId} exited with code ${exitCode}`);
-                    send('exit', `Process exited with code ${exitCode}`, exitCode);
+                    ws.send(JSON.stringify({
+                        type: "exit",
+                        code: exitCode
+                    }));
+
                     await cleanup();
+                    setTimeout(() => {
+                        send("exit", null, exitCode);
+                        cleanup();
+                    }, 20);
+
                 });
 
                 dockerProcess.on('error', async (error) => {
