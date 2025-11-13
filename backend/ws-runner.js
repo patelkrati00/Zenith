@@ -267,7 +267,8 @@ export function initWebSocketServer(httpServer, config) {
                     '-w', '/workspace',
                     '--user', userOption,
                     image,
-                    'sh', '-c', `timeout ${config.dockerTimeout}s ${execCommand}`
+                    'sh', '-c', `chmod -R +x /workspace 2>/dev/null || true; timeout ${config.dockerTimeout}s ${execCommand}`
+
                 ];
 
                 console.log(`🐳 Starting container for ${language} → ${targetFilename}`);
@@ -279,20 +280,21 @@ export function initWebSocketServer(httpServer, config) {
                 dockerProcess.stdout.on('data', (data) => send('stdout', data.toString()));
                 dockerProcess.stderr.on('data', (data) => send('stderr', data.toString()));
 
-                dockerProcess.on('close', async (exitCode) => {
-                    console.log(`✅ Job ${jobId} exited with code ${exitCode}`);
-                    ws.send(JSON.stringify({
-                        type: "exit",
-                        code: exitCode
-                    }));
+              dockerProcess.on('close', async (exitCode) => {
+    console.log(`✅ Job ${jobId} exited with code ${exitCode}`);
 
-                    await cleanup();
-                    setTimeout(() => {
-                        send("exit", null, exitCode);
-                        cleanup();
-                    }, 20);
+    if (jobId && activeContainers.has(jobId)) {
+        activeContainers.delete(jobId);
+    }
 
-                });
+    send('exit', null, exitCode);
+
+    try {
+        await cleanup();
+    } catch (err) {
+        console.error('Cleanup error:', err);
+    }
+});
 
                 dockerProcess.on('error', async (error) => {
                     console.error(`❌ Docker error for job ${jobId}:`, error.message);
