@@ -16,6 +16,9 @@ import { JobQueue } from './queue.js';
 import { IPRateLimiter } from './rate-limiter.js';
 import { CacheManager } from './cache-manager.js';
 import { DockerLayerCache } from './docker-layer-cache.js';
+import { monitoring } from './monitoring.js';
+import authRoutes from './routes/auth.js';
+import monitoringRoutes from './routes/monitoring.js';
 
 dotenv.config();
 
@@ -98,9 +101,14 @@ function toDockerPosixPath(hostPath) {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Auth and monitoring routes
+app.use('/auth', authRoutes);
+app.use('/monitoring', monitoringRoutes);
+
 // 🩺 Safe routes (no rate limiting)
 app.get('/health', (req, res) => {
     const queueStats = jobQueue.getStats();
+    const metrics = monitoring.getMetrics();
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -109,6 +117,11 @@ app.get('/health', (req, res) => {
             running: queueStats.runningCount,
             queued: queueStats.queueLength,
             maxConcurrent: queueStats.maxConcurrent
+        },
+        executions: {
+            total: metrics.executions.total,
+            successful: metrics.executions.successful,
+            failed: metrics.executions.failed
         }
     });
 });
