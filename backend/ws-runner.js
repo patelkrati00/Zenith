@@ -6,6 +6,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { monitoring } from './monitoring.js';
 
 // Get executor scripts directory path
 const __filename = fileURLToPath(import.meta.url);
@@ -210,6 +211,10 @@ export function initWebSocketServer(httpServer, config) {
                     send('info', `Job ${jobId} started`, jobId);
                 }
 
+                // Record execution start
+                const executionStartTime = Date.now();
+                monitoring.recordExecutionStart(jobId, language, 'anonymous');
+
                 // Auto-install dependencies
                 if (language === 'node') {
                     const pkg = path.join(workspacePath, 'package.json');
@@ -287,6 +292,9 @@ export function initWebSocketServer(httpServer, config) {
         activeContainers.delete(jobId);
     }
 
+    // Record execution completion
+    monitoring.recordExecutionComplete(jobId, exitCode);
+
     send('exit', null, exitCode);
 
     try {
@@ -298,6 +306,8 @@ export function initWebSocketServer(httpServer, config) {
 
                 dockerProcess.on('error', async (error) => {
                     console.error(`❌ Docker error for job ${jobId}:`, error.message);
+                    monitoring.recordExecutionComplete(jobId, 1, error.message);
+                    monitoring.recordError(error, { jobId, language });
                     send('error', error.message);
                     await cleanup();
                 });
