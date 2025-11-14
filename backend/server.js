@@ -19,6 +19,7 @@ import { DockerLayerCache } from './docker-layer-cache.js';
 import { monitoring } from './monitoring.js';
 import authRoutes from './routes/auth.js';
 import monitoringRoutes from './routes/monitoring.js';
+import { connectDB } from './config/database.js';
 
 dotenv.config();
 
@@ -312,6 +313,9 @@ async function runInContainer(language, workspacePath, filename) {
 // ... (rest of your routes remain identical)
 
 async function startServer() {
+    // Connect to MongoDB
+    await connectDB();
+    
     await ensureWorkspaceBase();
     
     // Initialize cache managers
