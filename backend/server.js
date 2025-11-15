@@ -30,6 +30,23 @@ const EXECUTOR_DIR = path.resolve(__dirname, '../executor');
 
 const execAsync = promisify(exec);
 const app = express();
+console.log("authRoutes DEBUG =>", authRoutes);
+
+// Language to Docker image mapping
+const LANGUAGE_IMAGES = {
+    node: process.env.DOCKER_IMAGE_NODE || 'node:18-alpine',
+    python: process.env.DOCKER_IMAGE_PYTHON || 'python:3.11-alpine',
+    cpp: process.env.DOCKER_IMAGE_CPP || 'gcc:latest',
+    java: process.env.DOCKER_IMAGE_JAVA || 'eclipse-temurin:17-jdk-alpine'
+};
+
+const LANGUAGE_COMMANDS = {
+    node: (file) => `/executor/run_node.sh ${file}`,
+    python: (file) => `/executor/run_python.sh ${file}`,
+    cpp: (file) => `/executor/run_cpp.sh ${file}`,
+    java: (file) => `/executor/run_java.sh ${file}`
+};
+
 
 // Configuration
 const PORT = process.env.PORT || 3001;
@@ -102,9 +119,8 @@ function toDockerPosixPath(hostPath) {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Auth and monitoring routes
-app.use('/auth', authRoutes);
-app.use('/monitoring', monitoringRoutes);
+
+
 
 // 🩺 Safe routes (no rate limiting)
 app.get('/health', (req, res) => {
@@ -141,7 +157,7 @@ app.get('/queue/status', (req, res) => {
 app.get('/cache/stats', (req, res) => {
     const cacheStats = cacheManager.getStats();
     const dockerStats = dockerLayerCache.getStats();
-    
+
     res.json({
         dependencyCache: cacheStats,
         dockerLayerCache: dockerStats,
@@ -153,7 +169,7 @@ app.delete('/cache/clear', async (req, res) => {
     try {
         await cacheManager.clearCache();
         await dockerLayerCache.clearCache();
-        
+
         res.json({
             message: 'Cache cleared successfully',
             timestamp: new Date().toISOString()
@@ -180,20 +196,7 @@ const projectConfig = {
 };
 app.use('/projects', createProjectRouter(projectConfig));
 
-// Language to Docker image mapping
-const LANGUAGE_IMAGES = {
-    node: process.env.DOCKER_IMAGE_NODE || 'node:18-alpine',
-    python: process.env.DOCKER_IMAGE_PYTHON || 'python:3.11-alpine',
-    cpp: process.env.DOCKER_IMAGE_CPP || 'gcc:latest',
-    java: process.env.DOCKER_IMAGE_JAVA || 'eclipse-temurin:17-jdk-alpine'
-};
 
-const LANGUAGE_COMMANDS = {
-    node: (file) => `/executor/run_node.sh ${file}`,
-    python: (file) => `/executor/run_python.sh ${file}`,
-    cpp: (file) => `/executor/run_cpp.sh ${file}`,
-    java: (file) => `/executor/run_java.sh ${file}`
-};
 
 /**
  * Ensure workspace base directory exists
@@ -313,15 +316,20 @@ async function runInContainer(language, workspacePath, filename) {
 // ... (rest of your routes remain identical)
 
 async function startServer() {
+
     // Connect to MongoDB
     await connectDB();
-    
+
+    // Auth and monitoring routes
+    app.use('/auth', authRoutes);
+    app.use('/monitoring', monitoringRoutes);
+
     await ensureWorkspaceBase();
-    
+
     // Initialize cache managers
     await cacheManager.initialize();
     await dockerLayerCache.initialize();
-    
+
     const executorDir = path.resolve(__dirname, '../executor');
     try {
         const scripts = await fs.readdir(executorDir);
