@@ -116,7 +116,11 @@ function toDockerPosixPath(hostPath) {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    exposedHeaders: ['Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET','POST','PUT','DELETE','OPTIONS']
+}));
 app.use(express.json({ limit: '10mb' }));
 
 

@@ -4,7 +4,7 @@
 
 import express from 'express';
 import { monitoring } from '../monitoring.js';
-import { authMiddleware, adminOnly } from '../auth.js';
+import { authMiddleware, adminOnly } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

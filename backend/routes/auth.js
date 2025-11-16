@@ -4,7 +4,7 @@
 
 import express from 'express';
 import { register, login, profile } from '../controllers/authController.js';
-import { authMiddleware as verifyToken } from '../auth.js';
+import { authMiddleware as verifyToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
