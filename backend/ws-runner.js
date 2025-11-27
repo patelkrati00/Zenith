@@ -266,13 +266,12 @@ export function initWebSocketServer(httpServer, config) {
                     `--cpus=${config.dockerCpu}`,
                     `--pids-limit=${config.dockerPids}`,
                     '--security-opt=no-new-privileges',
-                    '--tmpfs', '/tmp',
                     '-v', `${dockerHostPath}:/workspace:rw`,
                     '-v', `${dockerExecutorPath}:/executor:ro`,
                     '-w', '/workspace',
                     '--user', userOption,
                     image,
-                    'sh', '-c', `chmod -R +x /workspace 2>/dev/null || true; timeout ${config.dockerTimeout}s ${execCommand}`
+'sh', '-c', `timeout ${config.dockerTimeout}s ${execCommand}`
 
                 ];
 

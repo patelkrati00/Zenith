@@ -260,7 +260,6 @@ async function runInContainer(language, workspacePath, filename) {
         `--cpus=${DOCKER_CPU}`,
         `--pids-limit=${DOCKER_PIDS}`,
         '--security-opt=no-new-privileges',
-        '--tmpfs', '/tmp',
         '-v', `${workspacePath}:/workspace:rw`,
         '-v', `${dockerExecutorPath}:/executor:ro`,
         '-w', '/workspace',
