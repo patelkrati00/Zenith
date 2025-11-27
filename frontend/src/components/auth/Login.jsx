@@ -1,15 +1,58 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
+    const API_BASE_URL = 'http://localhost:3001';
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log({ email, password, rememberMe });
+
+        setError('');
+        setLoading(true);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: email,
+                    password: password,
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                setError(data.error || 'Login failed');
+                return;
+            }
+
+            if (rememberMe) {
+                window.localStorage.setItem('authToken', data.token);
+                window.sessionStorage.removeItem('authToken');
+            } else {
+                window.sessionStorage.setItem('authToken', data.token);
+                window.localStorage.removeItem('authToken');
+            }
+
+            const userString = JSON.stringify(data.user || {});
+            window.localStorage.setItem('authUser', userString);
+
+            navigate('/editor');
+        } catch (err) {
+            setError('Unable to connect to the server. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -79,6 +122,12 @@ export default function Login() {
                             Sign in to continue coding
                         </p>
                     </div>
+
+                    {error && (
+                        <div className="mb-4 text-sm" style={{ color: '#F97373' }}>
+                            {error}
+                        </div>
+                    )}
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -171,6 +220,7 @@ export default function Login() {
                                 Forgot password?
                             </a>
                         </div>
+
                         {/* Login Button */}
                         <motion.button
                             type="submit"
@@ -180,8 +230,9 @@ export default function Login() {
                             style={{
                                 background: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
                             }}
+                            disabled={loading}
                         >
-                            <span className="relative z-10">Login</span>
+                            <span className="relative z-10">{loading ? 'Logging in...' : 'Login'}</span>
                             <div
                                 className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                                 style={{

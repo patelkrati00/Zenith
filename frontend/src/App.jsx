@@ -7,6 +7,7 @@ import Login from "./components/auth/Login";
 import Signup from "./components/auth/Signup";
 import './styles/style.css'
 import {AdminDashboard} from "./components/AdminDashboard/AdminDashboard";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 
 function App() {
@@ -14,10 +15,24 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/editor" element={<EditorPage />} />
+        <Route
+          path="/editor"
+          element={(
+            <ProtectedRoute>
+              <EditorPage />
+            </ProtectedRoute>
+          )}
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-          <Route path="/dashboard" element={<AdminDashboard />} />
+          <Route
+            path="/dashboard"
+            element={(
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            )}
+          />
 
       </Routes>
     </Router>

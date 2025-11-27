@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function Signup() {
   const [username, setUsername] = useState('');
@@ -8,10 +8,59 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const API_BASE_URL = 'http://localhost:3001';
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log({ username, email, password, confirmPassword, acceptTerms });
+
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (!acceptTerms) {
+      setError('You must accept the Terms & Conditions');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    username,
+    email,
+    password,
+  }),
+});
+
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(data.error || 'Signup failed');
+        return;
+      }
+
+      window.localStorage.setItem('authToken', data.token);
+      const userString = JSON.stringify(data.user || {});
+      window.localStorage.setItem('authUser', userString);
+
+      navigate('/editor');
+    } catch (err) {
+      setError('Unable to connect to the server. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -102,6 +151,12 @@ export default function Signup() {
               Sign up to start coding
             </p>
           </div>
+
+          {error && (
+            <div className="mb-4 text-sm" style={{ color: '#F97373' }}>
+              {error}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -269,8 +324,9 @@ export default function Signup() {
               style={{
                 background: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
               }}
+              disabled={loading}
             >
-              <span className="relative z-10">Sign Up</span>
+              <span className="relative z-10">{loading ? 'Signing up...' : 'Sign Up'}</span>
               <div
                 className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                 style={{
