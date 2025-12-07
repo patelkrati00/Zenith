@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../AuthContext";
+import toast from "react-hot-toast";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -55,6 +56,8 @@ export default function Login() {
 
       // ⭐ Correct way
       login(finalUser);
+      toast.success("Login successful!");
+      setTimeout(() => navigate("/dashboard"), 800);
 
       navigate("/editor");
     } catch (err) {
