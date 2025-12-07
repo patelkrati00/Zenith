@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from "../../AuthContext";
+
 
 export default function Signup() {
   const [username, setUsername] = useState('');
@@ -13,55 +15,63 @@ export default function Signup() {
   const navigate = useNavigate();
   const API_BASE_URL = 'http://localhost:3001';
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const { login } = useAuth();  // ⭐ use login(), not setUser()
 
-    setError('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  setError("");
+
+  if (password !== confirmPassword) {
+    setError("Passwords do not match");
+    return;
+  }
+
+  if (!acceptTerms) {
+    setError("You must accept the Terms & Conditions");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username,
+        email,
+        password,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    // ❗ Backend sends 409 when username/email already exists
+    if (!response.ok) {
+      setError(data.error || "Signup failed");
       return;
     }
 
-    if (!acceptTerms) {
-      setError('You must accept the Terms & Conditions');
-      return;
-    }
+    // ⭐ Save token
+    localStorage.setItem("authToken", data.token);
 
-    setLoading(true);
+    // ⭐ Save user
+    localStorage.setItem("authUser", JSON.stringify(data.user));
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    username,
-    email,
-    password,
-  }),
-});
+    // ⭐ Use AuthContext login (not setUser)
+    login(data.user);
 
+    // Redirect
+    navigate("/editor");
+  } catch (err) {
+    setError("Unable to connect to the server. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        setError(data.error || 'Signup failed');
-        return;
-      }
-
-      window.localStorage.setItem('authToken', data.token);
-      const userString = JSON.stringify(data.user || {});
-      window.localStorage.setItem('authUser', userString);
-
-      navigate('/editor');
-    } catch (err) {
-      setError('Unable to connect to the server. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#0D0F14' }}>

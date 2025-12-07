@@ -115,15 +115,7 @@ function toDockerPosixPath(hostPath) {
     return `/${p}`;
 }
 
-// Middleware
-app.use(cors({
-    exposedHeaders: ['Authorization'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    methods: ['GET','POST','PUT','DELETE','OPTIONS']
-}));
 app.use(express.json({ limit: '10mb' }));
-
-
 
 
 // 🩺 Safe routes (no rate limiting)
@@ -323,6 +315,16 @@ async function startServer() {
     // Connect to MongoDB
     await connectDB();
 
+     // FIX: Put CORS here before routes
+    app.use(cors({
+        origin: "http://localhost:5173",
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+        credentials: true
+    }));
+
+    app.options("*", cors());
+    
     // Auth and monitoring routes
     app.use('/auth', authRoutes);
     app.use('/monitoring', monitoringRoutes);

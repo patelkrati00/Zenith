@@ -1,16 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Code2, Sparkles, Zap, Layers } from 'lucide-react';
+import React, { useState, useEffect, useContext } from "react";
+import { motion } from "framer-motion";
+import { Code2, Sparkles, Zap, Layers } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
+import { AuthContext } from "../AuthContext";
+import UserMenu from "../components/UserMenu";
+import "../components/UserMenu.css";
 
 const Home = () => {
+  const { user } = useContext(AuthContext);
+
   const [glowIntensity, setGlowIntensity] = useState(0);
   const navigate = useNavigate(); // <-- THIS IS MISSING
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setGlowIntensity(prev => (prev + 1) % 100);
+      setGlowIntensity((prev) => (prev + 1) % 100);
     }, 50);
     return () => clearInterval(interval);
   }, []);
@@ -40,27 +44,41 @@ const Home = () => {
           </motion.div>
 
           <div className="flex items-center gap-8">
-            {['Features', 'Docs', 'Community'].map((item, i) => (
+            {["Features", "Docs", "Community"].map((item, i) => (
               <motion.a
                 key={item}
                 href="#"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + i * 0.1 }}
-                whileHover={{ scale: 1.1, color: '#5B8DEF' }}
+                whileHover={{ scale: 1.1, color: "#5B8DEF" }}
                 className="text-[#E6E9F0]/80 hover:text-[#5B8DEF] transition-colors duration-300 font-medium"
               >
                 {item}
               </motion.a>
             ))}
-            <motion.button
-            onClick={() => navigate("/login")} 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-5 py-2 rounded-full bg-gradient-to-r from-[#5B8DEF]/20 to-[#9A7DFF]/20 border border-[#5B8DEF]/40 hover:border-[#5B8DEF] transition-all duration-300 font-medium"
-            >
-              Sign In
-            </motion.button>
+            {user ? (
+              <motion.button
+                onClick={() => navigate("/editor")}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-5 py-2 rounded-full bg-gradient-to-r from-[#5B8DEF]/20 to-[#9A7DFF]/20 border border-[#5B8DEF]/40 hover:border-[#5B8DEF] transition-all duration-300 font-medium"
+              >
+                Go to Editor
+              </motion.button>
+            ) : (
+              <motion.button
+                onClick={() => navigate("/login")}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-5 py-2 rounded-full bg-gradient-to-r from-[#5B8DEF]/20 to-[#9A7DFF]/20 border border-[#5B8DEF]/40 hover:border-[#5B8DEF] transition-all duration-300 font-medium"
+              >
+                Sign In
+              </motion.button>
+            )}
+            <div className="header-right">
+              <UserMenu />
+            </div>
           </div>
         </div>
       </motion.nav>
@@ -98,7 +116,12 @@ const Home = () => {
                 key={i}
                 initial={{ y: 0 }}
                 animate={{ y: [-10, 10, -10] }}
-                transition={{ duration: 3, delay: i * 0.4, repeat: Infinity, ease: "easeInOut" }}
+                transition={{
+                  duration: 3,
+                  delay: i * 0.4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
                 className="relative"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-[#5B8DEF] to-[#9A7DFF] blur-xl opacity-50"></div>
@@ -119,7 +142,7 @@ const Home = () => {
                 className="absolute inset-0 bg-gradient-to-r from-[#5B8DEF] to-[#9A7DFF] blur-2xl opacity-50"
                 style={{
                   transform: `scale(${1 + glowIntensity * 0.002})`,
-                  transition: 'transform 0.05s ease-out'
+                  transition: "transform 0.05s ease-out",
                 }}
               ></span>
               <span className="relative bg-gradient-to-r from-[#5B8DEF] to-[#9A7DFF] bg-clip-text text-transparent">
@@ -137,7 +160,9 @@ const Home = () => {
             transition={{ duration: 1, delay: 0.3 }}
             className="text-xl md:text-2xl text-[#E6E9F0]/70 max-w-3xl mx-auto leading-relaxed"
           >
-            Experience the future of coding with CodeDitor. A powerful, lightning-fast online editor built for developers who demand excellence.
+            Experience the future of coding with CodeDitor. A powerful,
+            lightning-fast online editor built for developers who demand
+            excellence.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -150,7 +175,10 @@ const Home = () => {
             {/* Primary Button */}
             <motion.button
               onClick={() => navigate("/editor")} // <-- add onClick here
-              whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(91, 141, 239, 0.6)" }}
+              whileHover={{
+                scale: 1.05,
+                boxShadow: "0 0 40px rgba(91, 141, 239, 0.6)",
+              }}
               whileTap={{ scale: 0.95 }}
               className="relative group px-10 py-5 rounded-2xl overflow-hidden font-semibold text-lg"
             >
@@ -161,7 +189,6 @@ const Home = () => {
                 <Code2 className="w-5 h-5" />
               </span>
             </motion.button>
-
 
             {/* Secondary Button */}
             <motion.button
@@ -180,7 +207,12 @@ const Home = () => {
             transition={{ duration: 1, delay: 1 }}
             className="flex flex-wrap items-center justify-center gap-4 pt-12"
           >
-            {['Real-time Collaboration', 'AI-Powered', 'Blazing Fast', '50+ Languages'].map((feature, i) => (
+            {[
+              "Real-time Collaboration",
+              "AI-Powered",
+              "Blazing Fast",
+              "50+ Languages",
+            ].map((feature, i) => (
               <motion.div
                 key={feature}
                 initial={{ opacity: 0, scale: 0.8 }}

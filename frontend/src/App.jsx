@@ -10,9 +10,10 @@ import {AdminDashboard} from "./components/AdminDashboard/AdminDashboard";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 
+
+
 function App() {
   return (
-    <Router>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route
@@ -35,7 +36,7 @@ function App() {
           />
 
       </Routes>
-    </Router>
+   
   );
 }
 

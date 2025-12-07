@@ -27,44 +27,53 @@ function generateToken(user) {
 
 export async function register(req, res) {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email and password are required' });
     }
 
+    // Check if username exists
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(409).json({ error: 'Username already exists' });
     }
 
+    // Check if email exists
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      return res.status(409).json({ error: 'Email already exists' });
+    }
+
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Create user
     const user = await User.create({
       username,
+      email,
       password: hashedPassword
     });
 
     const token = generateToken(user);
 
-    console.log("=== SIGNING TOKEN (REGISTER) ===");
-    console.log("JWT_SECRET:", `'${process.env.JWT_SECRET}'`, process.env.JWT_SECRET?.length);
-    console.log("TOKEN:", token);
-
     return res.status(201).json({
       token,
       user: {
         id: user._id,
-        username: user.username,
+        name: user.username,
+        email: user.email,
         createdAt: user.createdAt
       }
     });
+
   } catch (error) {
     console.error('Register error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
 
 export async function login(req, res) {
   try {
