@@ -20,8 +20,19 @@ router.post("/register", register);
 router.post("/login", login);
 router.get("/profile", verifyToken, profile);
 
-router.get("/me", verifyToken, (req, res) => {
-  res.json({ user: req.user });
+router.get("/me", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ user });
+  } catch (err) {
+    console.error("ME error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 /* =====================
@@ -31,7 +42,7 @@ router.get(
   "/google",
   passport.authenticate("google", {
     scope: ["profile", "email"],
-    state: "login"
+    state: "login",
   })
 );
 
@@ -42,7 +53,7 @@ router.get(
   "/google-signup",
   passport.authenticate("google", {
     scope: ["profile", "email"],
-    state: "signup"
+    state: "signup",
   })
 );
 
@@ -72,18 +83,17 @@ router.get(
 
         if (!finalUser) {
           finalUser = await User.create({
-            username: profile.displayName,
+            username: profile.displayName || email.split("@")[0],
             email,
             googleId: profile.id,
+            picture: profile.photos?.[0]?.value || null,
           });
         }
       }
 
-      const token = jwt.sign(
-        { id: finalUser._id },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-      );
+      const token = jwt.sign({ id: finalUser._id }, process.env.JWT_SECRET, {
+        expiresIn: "7d",
+      });
 
       return res.redirect(
         `http://localhost:5173/auth/google/callback?token=${token}`

@@ -9,6 +9,9 @@ const UserMenu = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // ✅ FIX: derive display name correctly
+  const displayName = user?.username || user?.email?.split("@")[0];
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -28,7 +31,6 @@ const UserMenu = () => {
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
-    // Add your theme toggle logic here
   };
 
   const menuItems = [
@@ -56,7 +58,7 @@ const UserMenu = () => {
         aria-label="User menu"
       >
         <div className="profile-circle">
-          {getInitial(user?.name)}
+          {getInitial(displayName)}
         </div>
       </button>
 
@@ -65,10 +67,10 @@ const UserMenu = () => {
           {/* User Info Section */}
           <div className="user-info-section">
             <div className="profile-circle-large">
-              {getInitial(user?.name)}
+              {getInitial(displayName)}
             </div>
             <div className="user-details">
-              <h3 className="user-name">{user?.name || 'User'}</h3>
+              <h3 className="user-name">{displayName || 'User'}</h3>
               <p className="user-email">{user?.email || 'email@example.com'}</p>
             </div>
           </div>
