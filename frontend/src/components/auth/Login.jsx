@@ -241,6 +241,17 @@ export default function Login() {
                 />
               </motion.button>
 
+              {/* Google Login */}
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "http://localhost:3001/auth/google";
+                }}
+                className="w-full mt-4 bg-red-500 text-white p-2 rounded"
+              >
+                Continue with Google
+              </button>
+
               {/* Create Account */}
               <div className="text-center">
                 <span className="text-sm" style={{ color: "#9CA3AF" }}>

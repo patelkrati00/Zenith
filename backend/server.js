@@ -20,6 +20,9 @@ import { monitoring } from './monitoring.js';
 import authRoutes from './routes/auth.js';
 import monitoringRoutes from './routes/monitoring.js';
 import { connectDB } from './config/database.js';
+import passport from "passport";
+import "./passportConfig.js";
+
 
 dotenv.config();
 
@@ -324,6 +327,7 @@ async function startServer() {
     }));
 
     app.options("*", cors());
+    app.use(passport.initialize());
     
     // Auth and monitoring routes
     app.use('/auth', authRoutes);

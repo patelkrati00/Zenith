@@ -8,6 +8,8 @@ import Signup from "./components/auth/Signup";
 import "./styles/style.css";
 import { AdminDashboard } from "./components/AdminDashboard/AdminDashboard";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import GoogleCallback from "./components/auth/GoogleCallback";
+
 import { Toaster } from "react-hot-toast";
 
 function App() {
@@ -27,6 +29,7 @@ function App() {
         />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/auth/google/callback" element={<GoogleCallback />} />
         <Route
           path="/dashboard"
           element={

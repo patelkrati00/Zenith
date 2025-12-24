@@ -358,6 +358,18 @@ export default function Signup() {
               />
             </motion.button>
 
+            <a href="http://localhost:3001/auth/google" className="google-btn">
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "http://localhost:3001/auth/google";
+                }}
+                className="w-full mt-4 bg-red-500 text-white p-2 rounded"
+              >
+                Continue with Google
+              </button>
+            </a>
+
             {/* Login Link */}
             <div className="text-center pt-2">
               <span className="text-sm" style={{ color: "#9CA3AF" }}>

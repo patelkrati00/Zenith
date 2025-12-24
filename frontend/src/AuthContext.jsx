@@ -5,23 +5,24 @@ export const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
-  // Load user on refresh
+  // ⭐ Load user on refresh
   useEffect(() => {
-    const savedUser = localStorage.getItem("authUser");
+    const savedUser = localStorage.getItem("user");
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
   }, []);
 
-  // ⭐ THIS FUNCTION IS REQUIRED ⭐
+  // ⭐ Save user on login
   const login = (userData) => {
     setUser(userData);
-    localStorage.setItem("authUser", JSON.stringify(userData));
+    localStorage.setItem("user", JSON.stringify(userData));
   };
 
+  // ⭐ Logout
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("authUser");
+    localStorage.removeItem("user");
   };
 
   return (
