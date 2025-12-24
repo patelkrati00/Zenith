@@ -18,22 +18,12 @@ passport.use(
         const user = await User.findOne({ email });
 
         if (!user) {
-          // ❌ USER DOES NOT EXIST → DO NOT CREATE
-          return done(null, {
-            isNewUser: true,
-            email,
-            name: profile.displayName,
-            googleId: profile.id,
-            picture: profile.photos?.[0]?.value || null,
-          });
+          // user NOT registered
+          return done(null, { isNewUser: true });
         }
 
-        // ✅ USER EXISTS
-        return done(null, {
-          isNewUser: false,
-          user,
-        });
-
+        // user already registered
+        return done(null, { isNewUser: false, user });
       } catch (err) {
         return done(err, null);
       }
