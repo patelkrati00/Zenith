@@ -1,59 +1,60 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
 
-// Generate JWT using the real env secret (NOT cached)
+/**
+ * Generate JWT safely
+ */
 function generateToken(user) {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
-    console.error('FATAL: JWT_SECRET is not set when generating token');
-    throw new Error('JWT secret missing');
+    console.error("FATAL: JWT_SECRET is not set");
+    throw new Error("JWT secret missing");
   }
 
-  // Include id + username + role for monitoring/admin
   return jwt.sign(
     {
-      id: user._id?.toString() || user.id,
-      username: user.username,
-      role: user.role || 'user'
+      id: user._id.toString(),
+      username: user.username || null,
+      role: user.role || "user",
     },
     secret,
     { expiresIn: JWT_EXPIRES_IN }
   );
 }
 
-export async function register(req, res) {
+/**
+ * REGISTER
+ * - Manual signup: email + password
+ * - Google signup: email only (password = null)
+ */
+export const register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Username, email and password are required' });
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
     }
 
-    // Check if username exists
-    const existingUser = await User.findOne({ username });
-    if (existingUser) {
-      return res.status(409).json({ error: 'Username already exists' });
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(409).json({ error: "User already exists" });
     }
 
-    // Check if email exists
-    const existingEmail = await User.findOne({ email });
-    if (existingEmail) {
-      return res.status(409).json({ error: 'Email already exists' });
+    let hashedPassword = null;
+
+    // Manual signup
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
     const user = await User.create({
-      username,
+      username: username || null,
       email,
-      password: hashedPassword
+      password: hashedPassword, // null for Google users
     });
 
     const token = generateToken(user);
@@ -62,71 +63,77 @@ export async function register(req, res) {
       token,
       user: {
         id: user._id,
-        name: user.username,
+        username: user.username,
         email: user.email,
-        createdAt: user.createdAt
-      }
+        createdAt: user.createdAt,
+      },
     });
-
-  } catch (error) {
-    console.error('Register error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+  } catch (err) {
+    console.error("Register error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
-}
+};
 
-
+/**
+ * LOGIN (EMAIL + PASSWORD ONLY)
+ * Google users CANNOT login here
+ */
 export async function login(req, res) {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Email and password are required" });
     }
 
-    const user = await User.findOne({ username });
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const user = await User.findOne({ email });
+
+    if (!user || !user.password) {
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const token = generateToken(user);
-
-    console.log("=== SIGNING TOKEN (LOGIN) ===");
-    console.log("JWT_SECRET:", `'${process.env.JWT_SECRET}'`, process.env.JWT_SECRET?.length);
-    console.log("TOKEN:", token);
 
     return res.json({
       token,
       user: {
         id: user._id,
         username: user.username,
-        createdAt: user.createdAt
-      }
+        email: user.email,
+        createdAt: user.createdAt,
+      },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Login error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
 
+/**
+ * PROFILE (JWT protected)
+ */
 export async function profile(req, res) {
   try {
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findById(req.user.id).select("-password");
+
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     return res.json({ user });
   } catch (error) {
-    console.error('Profile error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Profile error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

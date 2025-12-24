@@ -19,7 +19,6 @@ export default function Signup() {
 
   const API_BASE_URL = "http://localhost:3001";
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -142,7 +141,8 @@ export default function Signup() {
           <button
             type="button"
             onClick={() =>
-              (window.location.href = "http://localhost:3001/auth/google")
+              (window.location.href =
+                "http://localhost:3001/auth/google-signup")
             }
             className="w-full py-2 bg-red-500 text-white rounded"
           >

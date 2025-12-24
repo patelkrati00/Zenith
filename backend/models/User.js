@@ -6,9 +6,7 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: 3,
     maxlength: 30,
-    required: function () {
-      return !this.googleId; // Username only required for normal users
-    },
+    default: null,
   },
 
   email: {
@@ -20,10 +18,7 @@ const userSchema = new mongoose.Schema({
 
   password: {
     type: String,
-    minlength: 6,
-    required: function () {
-      return !this.googleId; // Password only required for normal users
-    },
+    default: null, // null for Google users
   },
 
   googleId: {
@@ -36,11 +31,19 @@ const userSchema = new mongoose.Schema({
     default: null,
   },
 
+  role: {
+    type: String,
+    default: "user",
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,
   },
 });
+
+// ✅ Extra safety: prevent duplicate emails (case-insensitive)
+userSchema.index({ email: 1 }, { unique: true });
 
 const User = mongoose.model("User", userSchema);
 export default User;

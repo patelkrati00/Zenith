@@ -2,6 +2,7 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "./models/User.js";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 passport.use(
@@ -18,12 +19,19 @@ passport.use(
         const user = await User.findOne({ email });
 
         if (!user) {
-          // user NOT registered
-          return done(null, { isNewUser: true });
+          // 🔴 Not registered yet (login flow)
+          return done(null, {
+            isNewUser: true,
+            profile, // ✅ REQUIRED
+          });
         }
 
-        // user already registered
-        return done(null, { isNewUser: false, user });
+        // 🟢 Already registered
+        return done(null, {
+          isNewUser: false,
+          user,
+          profile, // ✅ still pass profile
+        });
       } catch (err) {
         return done(err, null);
       }
@@ -31,5 +39,7 @@ passport.use(
   )
 );
 
-console.log("GOOGLE CLIENT ID:", process.env.GOOGLE_CLIENT_ID);
-console.log("GOOGLE CLIENT SECRET:", process.env.GOOGLE_CLIENT_SECRET);
+// Optional debug (safe)
+if (process.env.NODE_ENV !== "production") {
+  console.log("GOOGLE CLIENT ID LOADED");
+}
