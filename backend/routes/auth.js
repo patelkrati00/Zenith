@@ -47,5 +47,9 @@ router.get(
   }
 );
 
+router.get(
+  "/google-signup",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
 
 export default router;
