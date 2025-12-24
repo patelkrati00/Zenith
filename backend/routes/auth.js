@@ -29,26 +29,14 @@ router.get(
   passport.authenticate("google", { session: false }),
   (req, res) => {
 
-    console.log("GOOGLE CALLBACK USER:", req.user);
-
-    // 🔴 CASE 1: User NOT registered
+    // 🔴 User not registered → go to signup (empty page)
     if (req.user.isNewUser) {
-      return res.redirect(
-    `http://localhost:5173/signup?email=${encodeURIComponent(req.user.email)}&name=${encodeURIComponent(req.user.name)}&googleId=${req.user.googleId}&picture=${encodeURIComponent(req.user.picture)}`
-  );
-}
+      return res.redirect("http://localhost:5173/signup");
+    }
 
-
-    // ✅ CASE 2: User exists in DB
-    const dbUser = req.user.user;
-
+    // 🟢 User exists → login
     const token = jwt.sign(
-      {
-        id: dbUser._id,
-        name: dbUser.username,
-        email: dbUser.email,
-        picture: dbUser.picture,
-      },
+      { id: req.user.user._id },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -58,5 +46,6 @@ router.get(
     );
   }
 );
+
 
 export default router;
